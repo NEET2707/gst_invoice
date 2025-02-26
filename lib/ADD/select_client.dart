@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gst_invoice/color.dart';
 import 'add_client.dart';
-import 'DATABASE/database_helper.dart';
+import '../DATABASE/database_helper.dart';
 
 class SelectClient extends StatefulWidget {
   const SelectClient({super.key});
@@ -106,6 +106,7 @@ class _SelectClientState extends State<SelectClient> {
                 return GestureDetector(
                   onTap: () {
                     selectedClient = {
+                      'client_id':client['client_id'].toString(),
                       'client_company': client['client_company'].toString(),
                       'client_address': client['client_address'].toString(),
                       'client_gstin': client['client_gstin'].toString(),
@@ -114,6 +115,7 @@ class _SelectClientState extends State<SelectClient> {
                     };
 
                     Navigator.pop(context, selectedClient);
+                    print("================");
                     print(selectedClient);
                   },
 

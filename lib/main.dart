@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'DATABASE/sharedprefhelper.dart';
 import 'organization_detail.dart';
 import 'gst_invoice.dart';
@@ -8,16 +7,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   bool isDataSaved = await SharedPrefHelper.isCompanyDataSaved();
-  Map<String, String> companyDetails = isDataSaved
-      ? await SharedPrefHelper.getCompanyDetails()
-      : {"companyName": "", "companyState": "", "gstRate": "0.0"};
+  Map<String, dynamic> companyDetails = await SharedPrefHelper.getCompanyDetails();
 
   runApp(MyApp(isDataSaved: isDataSaved, companyDetails: companyDetails));
 }
 
 class MyApp extends StatelessWidget {
   final bool isDataSaved;
-  final Map<String, String> companyDetails;
+  final Map<String, dynamic> companyDetails;
 
   const MyApp({super.key, required this.isDataSaved, required this.companyDetails});
 
@@ -32,11 +29,12 @@ class MyApp extends StatelessWidget {
       ),
       home: isDataSaved
           ? GstInvoice(
-        companyName: companyDetails["companyName"]!,
-        companyState: companyDetails["companyState"]!,
-        gstRate: companyDetails["gstRate"]!,
+        companyName: companyDetails["companyName"] ?? "",
+        companyState: companyDetails["companyState"] ?? "",
+        gstRate: companyDetails["gstRate"] ?? "0.0",
       )
           : OrganizationDetail(),
     );
   }
 }
+

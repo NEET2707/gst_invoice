@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:gst_invoice/color.dart';
-import 'package:gst_invoice/select_client.dart';
-import 'package:gst_invoice/select_product.dart';
+import 'package:gst_invoice/ADD/select_client.dart';
+import 'package:gst_invoice/ADD/select_product.dart';
+import 'package:gst_invoice/organization_detail.dart';
+import 'DATABASE/sharedprefhelper.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -11,6 +13,35 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
+  Map<String, dynamic>? companyDetails;
+
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCompanyDetails();
+  }
+
+  void _loadCompanyDetails() async {
+    companyDetails = await SharedPrefHelper.getCompanyDetails();
+    setState(() {
+      print("Updated Company Details: $companyDetails");
+    });
+  }
+
+
+  Future<void> _onOrganizationDetailTap() async {
+    bool? result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => OrganizationDetail()),
+    );
+    if (result == true) {
+      _loadCompanyDetails();  // ✅ Reload data when coming back
+    }
+
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -46,7 +77,10 @@ class _SettingsState extends State<Settings> {
           _buildSettingsItem(
             icon: Icons.settings,
             title: "Settings",
-            subtitle: "Edit Details Of Your Company",
+            subtitle: companyDetails != null
+                ? "Company: ${companyDetails!["companyName"]}"
+                : "Edit Details Of Your Company",
+            onTap: _onOrganizationDetailTap,
           ),
           _buildSettingsItem(
             icon: Icons.assignment,
@@ -77,7 +111,7 @@ class _SettingsState extends State<Settings> {
     required IconData icon,
     required String title,
     required String subtitle,
-    Function()? onTap, // Optional navigation function
+    Function()? onTap,
   }) {
     return Card(
       elevation: 2,
@@ -89,7 +123,7 @@ class _SettingsState extends State<Settings> {
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         subtitle: Text(subtitle),
-        onTap: onTap, // Navigate if onTap is provided
+        onTap: onTap,
       ),
     );
   }

@@ -27,6 +27,47 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
   bool isStateEmpty = false;
   bool isGstRateEmpty = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _loadCompanyDetails();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadCompanyDetails();
+  }
+
+  void _loadCompanyDetails() async {
+    Map<String, dynamic> companyDetails = await SharedPrefHelper.getCompanyDetails();
+
+    setState(() {
+      companyNameController.text = companyDetails["companyName"] ?? "";
+      selectedState = companyDetails["companyState"];
+      gstRateController.text = companyDetails["gstRate"] ?? "0.0";
+      gstNumberController.text = companyDetails["gstNumber"] ?? "";
+      addressController.text = companyDetails["companyAddress"] ?? "";
+      contactController.text = companyDetails["companyContact"] ?? "";
+
+      var gstValue = companyDetails["isGstApplicable"];
+      if (gstValue is bool) {
+        isGstApplicable = gstValue;
+      } else if (gstValue is int) {
+        isGstApplicable = gstValue == 1;
+      } else if (gstValue is String) {
+        isGstApplicable = gstValue.toLowerCase() == "true";
+      } else {
+        isGstApplicable = false;
+      }
+
+      gstType = companyDetails["gstType"] ?? "same"; // ✅ Load gstType
+      selectedCustomerState = companyDetails["defaultCustomerState"];
+    });
+
+    print("isGstApplicable: $isGstApplicable, gstType: $gstType");
+  }
+
   void validateAndSave() async {
     setState(() {
       isCompanyNameEmpty = companyNameController.text.isEmpty;
@@ -36,50 +77,52 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
 
     if (isCompanyNameEmpty || isStateEmpty || isGstRateEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please fill in all required fields, including selecting a state.")),
+        const SnackBar(content: Text("Please fill in all required fields, including selecting a state.")),
       );
       return;
     }
 
     DatabaseHelper dbHelper = DatabaseHelper();
+
     Map<String, dynamic> companyData = {
       "company_name": companyNameController.text,
       "company_gstin": gstNumberController.text,
       "company_address": addressController.text,
       "company_state": selectedState,
       "company_contact": int.tryParse(contactController.text) ?? null,
-      "is_tax": isGstApplicable ? 1 : 0,
+      "is_tax": isGstApplicable ? 1 : 0,  // ✅ Store as an integer (1 or 0)
       "cgst": isGstApplicable ? double.tryParse(gstRateController.text) ?? 0.0 : 0.0,
       "sgst": isGstApplicable ? double.tryParse(gstRateController.text) ?? 0.0 : 0.0,
       "igst": isGstApplicable ? double.tryParse(gstRateController.text) ?? 0.0 : 0.0,
       "default_state": selectedCustomerState
     };
 
-    int id = await dbHelper.insertCompany(companyData);
-
-    if (id > 0) {
-      // Save in SharedPreferences
-      await SharedPrefHelper.saveCompanyDetails(
-        companyName: companyNameController.text,
-        companyState: selectedState!,
-        gstRate: isGstApplicable ? gstRateController.text : "0.0",
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Company details saved successfully!"))
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => GstInvoice(
-            companyName: companyNameController.text,
-            companyState: selectedState!,
-            gstRate: isGstApplicable ? gstRateController.text : "0.0",
-          ),
-        ),
-      );
+    int? existingCompanyId = await dbHelper.getCompanyId();
+    if (existingCompanyId != null) {
+      await dbHelper.updateCompany(existingCompanyId, companyData);
+    } else {
+      await dbHelper.insertCompany(companyData);
     }
+
+    await SharedPrefHelper.saveCompanyDetails(
+      companyName: companyNameController.text,
+      companyState: selectedState!,
+      gstRate: isGstApplicable ? gstRateController.text : "0.0",
+      gstNumber: gstNumberController.text,
+      companyAddress: addressController.text,
+      companyContact: contactController.text,
+      isGstApplicable: isGstApplicable,
+      defaultCustomerState: selectedCustomerState ?? "",
+      gstType: gstType, // ✅ Save gstType
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Company details updated successfully!"))
+    );
+    Navigator.pop(context, true); // Return true
+
+
+    // Navigator.pop(context, true);
   }
 
   final List<String> states = [
@@ -145,7 +188,7 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
     );
   }
 
-  Widget buildTextField(String label, String hint, {TextEditingController? controller, TextInputType? keyboardType, bool isRequired = false, bool showError = false}) {
+  Widget buildTextField(String label, String hint, {TextEditingController? controller, TextInputType? keyboardType, bool isRequired = false, bool showError = false, bool istype = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -175,6 +218,8 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
           ),
           child: TextField(
             controller: controller,
+            enabled: istype ? false : true,
+            readOnly:  istype ? true : false,
             keyboardType: keyboardType,
             decoration: InputDecoration(
               contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -251,10 +296,22 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
                         title: Text("Same For All Product", style: TextStyle(fontSize: 12)),
                         value: "same",
                         groupValue: gstType,
-                        onChanged: (value) {
+                        onChanged: (value) async {
                           setState(() {
                             gstType = value.toString();
+                            gstRateController.text = "18";
                           });
+                          await SharedPrefHelper.saveCompanyDetails(
+                            companyName: companyNameController.text,
+                            companyState: selectedState!,
+                            gstRate: gstRateController.text,
+                            gstNumber: gstNumberController.text,
+                            companyAddress: addressController.text,
+                            companyContact: contactController.text,
+                            isGstApplicable: isGstApplicable,
+                            defaultCustomerState: selectedCustomerState ?? "",
+                            gstType: gstType,
+                          );
                         },
                       ),
                     ),
@@ -263,17 +320,30 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
                         title: Text("Product wise GST", style: TextStyle(fontSize: 12)),
                         value: "product",
                         groupValue: gstType,
-                        onChanged: (value) {
+                        onChanged: (value) async {
                           setState(() {
                             gstType = value.toString();
                           });
+                          await SharedPrefHelper.saveCompanyDetails(
+                            companyName: companyNameController.text,
+                            companyState: selectedState!,
+                            gstRate: gstRateController.text,
+                            gstNumber: gstNumberController.text,
+                            companyAddress: addressController.text,
+                            companyContact: contactController.text,
+                            isGstApplicable: isGstApplicable,
+                            defaultCustomerState: selectedCustomerState ?? "",
+                            gstType: gstType,
+                          );
                         },
                       ),
                     ),
+
                   ],
                 ),
+
                 if (gstType == "same") ...[
-                  buildTextField("GST Rate(%)", "GST(%)", controller: gstRateController, keyboardType: TextInputType.number,showError: isGstRateEmpty),
+                  buildTextField("GST Rate(%)", "GST(%)", controller: gstRateController, keyboardType: TextInputType.number,showError: isGstRateEmpty,istype: true),
                 ],
                 buildTextField("GSTIN", "Enter Your GST Number", controller: gstNumberController),
               ],

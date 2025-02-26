@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:gst_invoice/DATABASE/database_helper.dart';
-import 'color.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../color.dart';
 
 class Product extends StatefulWidget {
-  final Map<String, dynamic>? product; // Product data for editing (nullable)
+  final Map<String, dynamic>? product;
 
   const Product({super.key, this.product});
 
@@ -16,20 +17,34 @@ class _ProductState extends State<Product> {
   final TextEditingController _priceController = TextEditingController();
   final TextEditingController _gstController = TextEditingController();
   final TextEditingController _hsnController = TextEditingController();
-  int? productId; // Store product ID for updating
+
+  int? productId;
+  bool _isGstApplicable = false;
+  String _gstType = "same"; // Default to "same"
 
   @override
   void initState() {
     super.initState();
-
-    // If editing, pre-fill data
+    _loadGstPreference();
     if (widget.product != null) {
-      productId = widget.product!['product_id']; // Assign product ID
+      productId = widget.product!['product_id'];
       _nameController.text = widget.product!['product_name'];
       _priceController.text = widget.product!['product_price'].toString();
       _gstController.text = widget.product!['product_gst'].toString();
       _hsnController.text = widget.product!['product_hsn'];
     }
+  }
+
+  Future<void> _loadGstPreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isGstApplicable = (prefs.getInt("isGstApplicable") ?? 0) == 1;
+      _gstType = prefs.getString("gstType") ?? "same";
+
+      if (_gstType == "same") {
+        _gstController.text = "18"; // Fixed GST rate for all products
+      }
+    });
   }
 
   Future<void> saveOrUpdateProduct() async {
@@ -38,7 +53,7 @@ class _ProductState extends State<Product> {
     String gstText = _gstController.text.trim();
     String hsn = _hsnController.text.trim();
 
-    if (name.isEmpty || priceText.isEmpty || gstText.isEmpty || hsn.isEmpty) {
+    if (name.isEmpty || priceText.isEmpty || hsn.isEmpty || (_isGstApplicable && gstText.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('All fields are required!')),
       );
@@ -46,9 +61,11 @@ class _ProductState extends State<Product> {
     }
 
     double price = double.tryParse(priceText) ?? 0.0;
-    double gst = double.tryParse(gstText) ?? 0.0;
+    double gst = _isGstApplicable
+        ? (_gstType == "same" ? 18.0 : (double.tryParse(gstText) ?? 0.0))
+        : 0.0;
 
-    if (price <= 0 || gst < 0) {
+    if (price <= 0 || (_isGstApplicable && gst < 0)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Invalid price or GST rate!')),
       );
@@ -63,21 +80,19 @@ class _ProductState extends State<Product> {
     };
 
     if (productId == null) {
-      // If productId is null, add a new product
       await DatabaseHelper().saveProduct(productData);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Product added successfully!')),
       );
     } else {
-      // If productId is present, update the existing product
-      productData['product_id'] = productId; // Add product_id for update
+      productData['product_id'] = productId;
       await DatabaseHelper().updateProduct(productData);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Product updated successfully!')),
       );
     }
 
-    Navigator.pop(context, true); // Return true to refresh the product list
+    Navigator.pop(context, true);
   }
 
   @override
@@ -88,7 +103,7 @@ class _ProductState extends State<Product> {
         title: Text(productId == null ? "Add Product" : "Edit Product"),
         actions: [
           GestureDetector(
-            onTap: saveOrUpdateProduct, // Calls save/update method
+            onTap: saveOrUpdateProduct,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Icon(Icons.check),
@@ -103,7 +118,15 @@ class _ProductState extends State<Product> {
           children: [
             buildTextField("Product Name", "Enter Product Name", controller: _nameController),
             buildTextField("Price", "Enter Product Price", controller: _priceController, keyboardType: TextInputType.number),
-            buildTextField("GST Rate(%)", "Enter GST Rate", controller: _gstController, keyboardType: TextInputType.number),
+            if (_isGstApplicable)
+              buildTextField(
+                "GST Rate(%)",
+                "Enter GST Rate",
+                controller: _gstController,
+                keyboardType: TextInputType.number,
+                readOnly: _gstType == "same", // Editable only if "productwise"
+              ),
+
             buildTextField("HSN Code", "Enter HSN Code", controller: _hsnController),
           ],
         ),
@@ -112,7 +135,8 @@ class _ProductState extends State<Product> {
   }
 }
 
-Widget buildTextField(String label, String hint, {TextEditingController? controller, TextInputType? keyboardType}) {
+Widget buildTextField(String label, String hint,
+    {TextEditingController? controller, TextInputType? keyboardType, bool readOnly = false}) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -120,7 +144,7 @@ Widget buildTextField(String label, String hint, {TextEditingController? control
       SizedBox(height: 5),
       Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: readOnly ? Colors.grey.shade200 : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.grey.shade300),
           boxShadow: [
@@ -134,6 +158,7 @@ Widget buildTextField(String label, String hint, {TextEditingController? control
         child: TextField(
           controller: controller,
           keyboardType: keyboardType,
+          readOnly: readOnly, // Use readOnly instead of enabled
           decoration: InputDecoration(
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             border: InputBorder.none,
@@ -146,3 +171,4 @@ Widget buildTextField(String label, String hint, {TextEditingController? control
     ],
   );
 }
+

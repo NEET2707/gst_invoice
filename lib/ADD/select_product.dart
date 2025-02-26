@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:gst_invoice/product.dart';
+import 'package:gst_invoice/ADD/product.dart';
 import 'package:gst_invoice/DATABASE/database_helper.dart'; // Import Database Helper
-import 'color.dart';
+import '../color.dart';
 
 class SelectProduct extends StatefulWidget {
   const SelectProduct({super.key});
@@ -24,6 +24,8 @@ class _SelectProductState extends State<SelectProduct> {
     final data = await DatabaseHelper().getProducts();
     setState(() {
       productList = data;
+      print("+++++++++++++++++++++++++++++++++++");
+      print(productList);
     });
   }
 
@@ -112,16 +114,20 @@ class _SelectProductState extends State<SelectProduct> {
                         // Edit Button
                         IconButton(
                           icon: const Icon(Icons.edit, color: Colors.blue),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => Product(product: product), // Pass product data
-                              ),
-                            ).then((value) {
-                              if (value == true) fetchProducts(); // Refresh list after update
-                            });
-                          },
+                            onPressed: () async {
+                              bool? result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => Product(product: product), // Pass product data
+                                ),
+                              );
+
+                              if (result == true) {
+                                fetchProducts();
+                                print("===============================================");
+                                print("fetchProducts");// Refresh the product list after update
+                              }
+                            }
                         ),
 
                         // Delete Button

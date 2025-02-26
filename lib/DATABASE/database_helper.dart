@@ -42,6 +42,33 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
+      CREATE TABLE IF NOT EXISTS product (
+        product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        product_name TEXT,
+        product_price FLOAT,
+        product_gst FLOAT,
+        product_hsn TEXT,
+        is_delete INTEGER
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS company (
+        company_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        company_name TEXT,
+        company_gstin TEXT,
+        company_address TEXT,
+        company_state TEXT,
+        company_contact INTEGER,
+        is_tax INTEGER,
+        cgst FLOAT,
+        sgst FLOAT,
+        igst FLOAT,
+        default_state TEXT
+      )
+    ''');
+
+    await db.execute('''
       CREATE TABLE IF NOT EXISTS invoice (
         invoice_id INTEGER PRIMARY KEY AUTOINCREMENT,
         client_id INTEGER,
@@ -72,36 +99,12 @@ class DatabaseHelper {
         cgst FLOAT,
         sgst FLOAT,
         igst FLOAT,
-        dateadded DATE
+        dateadded DATE,
+        discount REAL DEFAULT 0
       )
     ''');
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS product (
-        product_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        product_name TEXT,
-        product_price FLOAT,
-        product_gst FLOAT,
-        product_hsn TEXT,
-        is_delete INTEGER
-      )
-    ''');
 
-    await db.execute('''
-      CREATE TABLE IF NOT EXISTS company (
-        company_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        company_name TEXT,
-        company_gstin TEXT,
-        company_address TEXT,
-        company_state TEXT,
-        company_contact INTEGER,
-        is_tax INTEGER,
-        cgst FLOAT,
-        sgst FLOAT,
-        igst FLOAT,
-        default_state TEXT
-      )
-    ''');
 
     await db.execute('''
       CREATE TABLE IF NOT EXISTS setting (
@@ -143,8 +146,11 @@ class DatabaseHelper {
 
   Future<List<Map<String, dynamic>>> getProducts() async {
     final db = await getDatabase();
-    return await db.query('product', where: 'is_delete = ?', whereArgs: [0]);
+    final List<Map<String, dynamic>> result = await db.query('product'); // Ensure table name is correct
+    print("Fetched Products: $result");
+    return result;
   }
+
 
   Future<int> deleteProduct(int productId) async {
     final db = await getDatabase();
@@ -161,6 +167,50 @@ class DatabaseHelper {
     );
   }
 
+  Future<int?> getCompanyId() async {
+    final db = await getDatabase();
+    List<Map<String, dynamic>> result = await db.query("company");
+    if (result.isNotEmpty) {
+      return result.first["id"]; // Assuming 'id' is the primary key
+    }
+    return null;
+  }
 
+  Future<int> updateCompany(int id, Map<String, dynamic> companyData) async {
+    final db = await getDatabase();
+    return await db.update("company", companyData, where: "id = ?", whereArgs: [id]);
+  }
 
+  static Future<int> saveInvoiceLine(Map<String, dynamic> data) async {
+    final db = await getDatabase();
+    return await db.insert('invoice_line', data);
+  }
+
+  static Future<List<Map<String, dynamic>>> fetchInvoiceLines(int invoiceId) async {
+    final db = await getDatabase();
+    return await db.query('invoice_line', where: 'invoice_id = ?', whereArgs: [invoiceId]);
+  }
+
+  static Future<int> updateInvoiceLine(int id, Map<String, dynamic> data) async {
+    final db = await getDatabase();
+    return await db.update('invoice_line', data, where: 'invoice_line_id = ?', whereArgs: [id]);
+  }
+
+  static Future<int> deleteInvoiceLine(int id) async {
+    final db = await getDatabase();
+    return await db.delete('invoice_line', where: 'invoice_line_id = ?', whereArgs: [id]);
+  }
 }
+
+Future<int> saveInvoice(Map<String, dynamic> invoiceData) async {
+  final db = await DatabaseHelper.getDatabase();
+  return await db.insert('invoice', invoiceData);
+}
+
+Future<List<Map<String, dynamic>>> fetchInvoices() async {
+  final db = await DatabaseHelper.getDatabase();
+  return await db.query('invoice', orderBy: 'invoice_id DESC');
+}
+
+
+
