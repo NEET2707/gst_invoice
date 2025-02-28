@@ -22,7 +22,7 @@ class SharedPrefHelper {
     required String companyContact,
     required bool isGstApplicable,
     required String defaultCustomerState,
-    required String gstType, // ✅ Add GST Type
+    required String gstType,
   }) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_isDataSavedKey, true);

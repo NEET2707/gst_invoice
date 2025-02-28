@@ -22,12 +22,18 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 3,
       onCreate: (db, version) async {
         await _createTables(db);
       },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 3) {
+          await db.execute("ALTER TABLE invoice ADD COLUMN is_paid INTEGER DEFAULT 0");
+        }
+      },
     );
   }
+
 
   static Future<void> _createTables(Database db) async {
     await db.execute('''
@@ -69,40 +75,46 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS invoice (
-        invoice_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        client_id INTEGER,
-        total_cgst FLOAT,
-        total_sgst FLOAT,
-        total_igst FLOAT,
-        taxable_amount FLOAT,
-        total_tax FLOAT,
-        total_amount FLOAT,
-        invoic_date DATE,
-        due_date DATE,
-        date_added DATE,
-        date_modified DATE,
-        is_equal_state INTEGER,
-        is_tax INTEGER
-      )
-    ''');
+  CREATE TABLE IF NOT EXISTS invoice (
+    invoice_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER,
+    total_cgst FLOAT,
+    total_sgst FLOAT,
+    total_igst FLOAT,
+    taxable_amount FLOAT,
+    total_tax FLOAT,
+    total_amount FLOAT,
+    discount REAL DEFAULT 0,  
+    invoic_date DATE,
+    due_date DATE,
+    date_added DATE,
+    date_modified DATE,
+    is_equal_state INTEGER,
+    is_tax INTEGER
+    is_paid INTEGER DEFAULT 0
+  )
+''');
+
 
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS invoice_line (
-        invoice_line_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        invoice_id INTEGER,
-        product_id INTEGER,
-        lineprodgst FLOAT,
-        price FLOAT,
-        qty INTEGER,
-        total FLOAT,
-        cgst FLOAT,
-        sgst FLOAT,
-        igst FLOAT,
-        dateadded DATE,
-        discount REAL DEFAULT 0
-      )
-    ''');
+  CREATE TABLE IF NOT EXISTS invoice_line (
+    invoice_line_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    invoice_id INTEGER,
+    product_id INTEGER,
+    lineprodgst FLOAT,
+    price FLOAT,
+    qty INTEGER,
+    total FLOAT,
+    cgst FLOAT,
+    sgst FLOAT,
+    igst FLOAT,
+    dateadded DATE,
+    discount REAL DEFAULT 0,
+    FOREIGN KEY (invoice_id) REFERENCES invoice(invoice_id),
+    FOREIGN KEY (product_id) REFERENCES product(product_id)
+  )
+''');
+
 
 
 
@@ -211,6 +223,22 @@ Future<List<Map<String, dynamic>>> fetchInvoices() async {
   final db = await DatabaseHelper.getDatabase();
   return await db.query('invoice', orderBy: 'invoice_id DESC');
 }
+
+Future<void> saveCompanyLogo(String logoPath) async {
+  final db = await DatabaseHelper.getDatabase();
+  await db.insert(
+    'companylogo',
+    {'logo': logoPath},
+    conflictAlgorithm: ConflictAlgorithm.replace,
+  );
+}
+
+Future<String?> getCompanyLogo() async {
+  final db = await DatabaseHelper.getDatabase();
+  List<Map<String, dynamic>> result = await db.query('companylogo');
+  return result.isNotEmpty ? result.first['logo'] : null;
+}
+
 
 
 

@@ -8,14 +8,14 @@ import 'DATABASE/database_helper.dart';
 import 'detail.dart';
 
 class GstInvoice extends StatefulWidget {
-  final String companyName;
-  final String companyState;
-  final String gstRate;
+  final String? companyName;
+  final String? companyState;
+  final String? gstRate;
 
   GstInvoice({
-    required this.companyName,
-    required this.companyState,
-    required this.gstRate,
+    this.companyName,
+    this.companyState,
+    this.gstRate,
   });
 
   @override
@@ -127,7 +127,7 @@ class _GstInvoiceState extends State<GstInvoice> {
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
-                            isPaid ? "paid" : "unpaid",
+                            isPaid ? "PAID" : "UNPAID",  // ✅ Display Paid/Unpaid
                             style: TextStyle(color: Colors.white, fontSize: 12),
                           ),
                         ),
@@ -146,7 +146,7 @@ class _GstInvoiceState extends State<GstInvoice> {
                         Icon(Icons.person, size: 18, color: Colors.black54),
                         SizedBox(width: 5),
                         Text(
-                          widget.companyName,
+                          widget.companyName.toString(),
                           style: TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
                         ),
                       ],

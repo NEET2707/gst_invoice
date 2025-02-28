@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gst_invoice/ADD/select_client.dart';
 import 'package:gst_invoice/ADD/select_product.dart';
 import 'package:gst_invoice/DATABASE/database_helper.dart';
+import 'package:gst_invoice/gst_invoice.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -59,6 +60,10 @@ class _InvoiceState extends State<Invoice> {
         final invoice = invoiceData.first;
         invoiceDateController.text = invoice['invoic_date'] ?? "";
         dueDateController.text = invoice['due_date'] ?? "";
+
+        // ✅ Fetch discount from invoice table (NOT invoice_line)
+        discountPercentage = (invoice['discount'] ?? 0).toDouble();
+        discountController.text = discountPercentage.toString(); // Update UI
       });
     }
 
@@ -112,9 +117,11 @@ class _InvoiceState extends State<Invoice> {
       totalIGST = totalGST;
     }
 
+    int invoiceId;
+
     if (widget.invoiceId == null) {
       // **Insert New Invoice**
-      int invoiceId = await db.insert('invoice', {
+      invoiceId = await db.insert('invoice', {
         'client_id': selectedClient!['client_id'],
         'total_cgst': totalCGST,
         'total_sgst': totalSGST,
@@ -128,22 +135,11 @@ class _InvoiceState extends State<Invoice> {
         'date_modified': DateFormat("yyyy-MM-dd").format(DateTime.now()),
         'is_equal_state': isSameState ? 1 : 0,
         'is_tax': 1,
+        'discount': discountPercentage, // ✅ Save discount at the invoice level
       });
-
-      for (var product in selectedProducts) {
-        await DatabaseHelper.saveInvoiceLine({
-          'invoice_id': invoiceId,
-          'product_id': product['product_id'],
-          'price': product['product_price'],
-          'qty': product['qty'],
-          'total': product['total'],
-          'cgst': isSameState ? totalCGST : 0,
-          'sgst': isSameState ? totalSGST : 0,
-          'igst': isSameState ? 0 : totalIGST,
-        });
-      }
     } else {
       // **Update Existing Invoice**
+      invoiceId = widget.invoiceId!;
       await db.update(
         'invoice',
         {
@@ -157,12 +153,26 @@ class _InvoiceState extends State<Invoice> {
           'invoic_date': invoiceDateController.text,
           'due_date': dueDateController.text,
           'date_modified': DateFormat("yyyy-MM-dd").format(DateTime.now()),
+          'discount': discountPercentage, // ✅ Save discount at the invoice level
         },
         where: 'invoice_id = ?',
-        whereArgs: [widget.invoiceId],
+        whereArgs: [invoiceId],
+      );
+    }
+
+
+    // **Save or Update Invoice Line Items**
+    for (var product in selectedProducts) {
+      int? existingProductId = product['product_id'];
+
+      final List<Map<String, dynamic>> existingInvoiceLines = await db.query(
+        'invoice_line',
+        where: 'invoice_id = ? AND product_id = ?',
+        whereArgs: [invoiceId, existingProductId],
       );
 
-      for (var product in selectedProducts) {
+      if (existingInvoiceLines.isNotEmpty) {
+        // **Update existing product**
         await db.update(
           'invoice_line',
           {
@@ -172,19 +182,33 @@ class _InvoiceState extends State<Invoice> {
             'cgst': isSameState ? totalCGST : 0,
             'sgst': isSameState ? totalSGST : 0,
             'igst': isSameState ? 0 : totalIGST,
+            'discount': discountPercentage, // Save discount value
           },
           where: 'invoice_id = ? AND product_id = ?',
-          whereArgs: [widget.invoiceId, product['product_id']],
+          whereArgs: [invoiceId, existingProductId],
         );
+      } else {
+        // **Insert new product**
+        await db.insert('invoice_line', {
+          'invoice_id': invoiceId,
+          'product_id': product['product_id'],
+          'price': product['product_price'],
+          'qty': product['qty'],
+          'total': product['total'],
+          'cgst': isSameState ? totalCGST : 0,
+          'sgst': isSameState ? totalSGST : 0,
+          'igst': isSameState ? 0 : totalIGST,
+          'discount': discountPercentage, // Save discount value
+        });
       }
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Invoice saved successfully!")),
     );
+
+    Navigator.pop(context, true); // Return `true` to indicate update success
   }
-
-
 
   Future<void> _loadCompanyDetails() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -217,13 +241,12 @@ class _InvoiceState extends State<Invoice> {
 
     if (selectedProduct != null) {
       setState(() {
-        if (selectedClient == null) {
-          selectedClient = {"id": 1}; // Assign default client
-        }
-        selectedProducts.add({...selectedProduct, 'qty': 1});
+        // Ensure the list is mutable before adding a new product
+        selectedProducts = List.from(selectedProducts)..add({...selectedProduct, 'qty': 1});
       });
     }
   }
+
 
   double _getTotalPrice() {
     return selectedProducts.fold(0, (sum, product) {
@@ -249,7 +272,6 @@ class _InvoiceState extends State<Invoice> {
 
 
   void _applyDiscount(BuildContext context) {
-
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -313,9 +335,8 @@ class _InvoiceState extends State<Invoice> {
                 int updatedQty = int.tryParse(qtyController.text) ?? 1;
 
                 setState(() {
-                  // Fetch old product details
-                  Map<String, dynamic> updatedProduct =
-                  Map<String, dynamic>.from(selectedProducts[index]);
+                  // Create a mutable copy of the selected product
+                  Map<String, dynamic> updatedProduct = {...selectedProducts[index]};
 
                   // Update quantity
                   updatedProduct['qty'] = updatedQty;
@@ -333,8 +354,8 @@ class _InvoiceState extends State<Invoice> {
                   updatedProduct['sgst'] = isSameState ? gstAmount / 2 : 0;
                   updatedProduct['igst'] = isSameState ? 0 : gstAmount;
 
-                  // Update the list
-                  selectedProducts[index] = updatedProduct;
+                  // Update the list in a way Flutter detects the change
+                  selectedProducts = List.from(selectedProducts)..[index] = updatedProduct;
                 });
 
                 // Update database
@@ -371,196 +392,6 @@ class _InvoiceState extends State<Invoice> {
     );
   }
 
-  // Future<void> _saveInvoice() async {
-  //   if (selectedClient == null || selectedProducts.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text("Please add a buyer and at least one product")),
-  //     );
-  //     return;
-  //   }
-  //
-  //   final db = await DatabaseHelper.getDatabase();
-  //
-  //   int invoiceId = await db.insert('invoice', {
-  //     // 'invoice_date': invoiceDateController.text,
-  //     // 'due_date': dueDateController.text,
-  //     'client_id': selectedClient!['id'] ?? 0,
-  //     'total_amount': _getDiscountedTotal(),
-  //   });
-  //
-  //   for (var product in selectedProducts) {
-  //     double price = product['product_price'];
-  //     int qty = product['qty'];
-  //     double total = price * qty;
-  //     double gstRate = product['product_gst'];
-  //     double gstAmount = total * gstRate / 100;
-  //     bool isSameState = selectedClient!['client_state'] == companyState;
-  //
-  //     await DatabaseHelper.saveInvoiceLine({
-  //       'invoice_id': invoiceId,
-  //       'product_id': product['product_id'] ?? 0,
-  //       'lineprodgst': gstRate,
-  //       'price': price,
-  //       'qty': (product['qty'] as int?) ?? 1,
-  //       'total': total + gstAmount,
-  //       'cgst': isSameState ? gstAmount / 2 : 0,
-  //       'sgst': isSameState ? gstAmount / 2 : 0,
-  //       'igst': isSameState ? 0 : gstAmount,
-  //       'dateadded': DateFormat("yyyy-MM-dd").format(DateTime.now()),
-  //       'discount' : discountController.text,
-  //
-  //     });
-  //     print("111111111111111111111111111111111");
-  //     print(invoiceId);
-  //     print(product['product_id']);
-  //     print(gstRate);
-  //     print(price);
-  //     print(qty);
-  //     print(total + gstAmount);
-  //     print(isSameState ? gstAmount / 2 : 0);
-  //     print(isSameState ? gstAmount / 2 : 0);
-  //     print(isSameState ? 0 : gstAmount);
-  //     print(DateFormat);
-  //     print(discountController.text);
-  //   }
-  //
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(content: Text("Invoice saved successfully!")),
-  //   );
-  //   print("+++++++++++++++++++++++++++++++++++++++++++");
-  //   print(_saveInvoice);
-  // }
-  //
-  // Future<void> saveInvoiceDetails() async {
-  //   if (selectedClient == null || selectedProducts.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text("Please add a buyer and at least one product")),
-  //     );
-  //     return;
-  //   }
-  //
-  //   final db = await DatabaseHelper.getDatabase();
-  //
-  //   // ✅ Calculate totals
-  //   double taxableAmount = _getTotalPrice();
-  //   double totalGST = _getTotalGST();
-  //   double totalAmount = _getDiscountedTotal();
-  //   double totalCGST = 0, totalSGST = 0, totalIGST = 0;
-  //
-  //   bool isSameState = selectedClient!['client_state'] == companyState;
-  //
-  //   if (isSameState) {
-  //     totalCGST = totalGST / 2;
-  //     totalSGST = totalGST / 2;
-  //   } else {
-  //     totalIGST = totalGST;
-  //   }
-  //
-  //   // ✅ Save Invoice
-  //   int invoiceId = await saveInvoice({
-  //     'client_id': selectedClient!['id'],
-  //     'total_cgst': totalCGST,
-  //     'total_sgst': totalSGST,
-  //     'total_igst': totalIGST,
-  //     'taxable_amount': taxableAmount,
-  //     'total_tax': totalGST,
-  //     'total_amount': totalAmount,
-  //     'invoic_date': invoiceDateController.text,
-  //     'due_date': dueDateController.text,
-  //     'date_added': DateFormat("yyyy-MM-dd").format(DateTime.now()),
-  //     'date_modified': DateFormat("yyyy-MM-dd").format(DateTime.now()),
-  //     'is_equal_state': isSameState ? 1 : 0,
-  //     'is_tax': 1,
-  //   });
-  //   print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-  //   print(selectedClient!['id']);
-  //   print(totalCGST);
-  //   print(totalSGST);
-  //   print(totalIGST);
-  //   print(taxableAmount);
-  //   print(totalGST);
-  //   print(totalAmount);
-  //   print(invoiceDateController.text);
-  //   print(dueDateController.text);
-  //   print(DateFormat("yyyy-MM-dd").format(DateTime.now()));
-  //   print(DateFormat("yyyy-MM-dd").format(DateTime.now()));
-  //   print(isSameState ? 1 : 0);
-  //   print(1);
-  //
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(content: Text("Invoice #$invoiceId saved successfully!")),
-  //   );
-  // }
-
-  // Future<void> saveInvoice() async {
-  //   if (selectedClient == null || selectedProducts.isEmpty) {
-  //     ScaffoldMessenger.of(context).showSnackBar(
-  //       SnackBar(content: Text("Please add a buyer and at least one product")),
-  //     );
-  //     return;
-  //   }
-  //
-  //   final db = await DatabaseHelper.getDatabase();
-  //
-  //   // ✅ Calculate totals
-  //     double taxableAmount = _getTotalPrice();
-  //   double totalGST = _getTotalGST();
-  //   double totalAmount = _getDiscountedTotal();
-  //   double totalCGST = 0, totalSGST = 0, totalIGST = 0;
-  //
-  //   bool isSameState = selectedClient!['client_state'] == companyState;
-  //
-  //   if (isSameState) {
-  //     totalCGST = totalGST / 2;
-  //     totalSGST = totalGST / 2;
-  //   } else {
-  //     totalIGST = totalGST;
-  //   }
-  //
-  //   // ✅ Save Invoice
-  //   int invoiceId = await db.insert('invoice', {
-  //     'client_id': selectedClient!['client_id'],
-  //     'total_cgst': totalCGST,
-  //     'total_sgst': totalSGST,
-  //     'total_igst': totalIGST,
-  //     'taxable_amount': taxableAmount,
-  //     'total_tax': totalGST,
-  //     'total_amount': totalAmount,
-  //     'invoic_date': invoiceDateController.text,
-  //     'due_date': dueDateController.text,
-  //     'date_added': DateFormat("yyyy-MM-dd").format(DateTime.now()),
-  //     'date_modified': DateFormat("yyyy-MM-dd").format(DateTime.now()),
-  //     'is_equal_state': isSameState ? 1 : 0,
-  //     'is_tax': 1,
-  //   });
-  //
-  //   // ✅ Save Invoice Line Items
-  //   for (var product in selectedProducts) {
-  //     double price = product['product_price'];
-  //     int qty = product['qty'];
-  //     double total = price * qty;
-  //     double gstRate = product['product_gst'];
-  //     double gstAmount = total * gstRate / 100;
-  //
-  //     await DatabaseHelper.saveInvoiceLine({
-  //       'invoice_id': invoiceId,
-  //       'product_id': product['product_id'] ?? 0,
-  //       'lineprodgst': gstRate,
-  //       'price': price,
-  //       'qty': qty,
-  //       'total': total + gstAmount,
-  //       'cgst': isSameState ? gstAmount / 2 : 0,
-  //       'sgst': isSameState ? gstAmount / 2 : 0,
-  //       'igst': isSameState ? 0 : gstAmount,
-  //       'dateadded': DateFormat("yyyy-MM-dd").format(DateTime.now()),
-  //       'discount': discountController.text,
-  //     });
-  //   }
-  //
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     SnackBar(content: Text("Invoice #$invoiceId saved successfully!")),
-  //   );
-  // }
 
   Widget _buildSummaryRow(String label, String value, {bool isBold = false, bool isHighlighted = false}) {
     return Padding(
@@ -598,7 +429,7 @@ class _InvoiceState extends State<Invoice> {
                   // await _saveInvoice();
                   // await saveInvoiceDetails();
                   await saveInvoice();
-                  Navigator.pop(context);
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => GstInvoice(),));
                 },
                 child: const Text(
                   "SAVE",
@@ -948,4 +779,3 @@ class _InvoiceState extends State<Invoice> {
     );
   }
 }
-
