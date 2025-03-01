@@ -59,30 +59,26 @@ class _AddClientState extends State<AddClient> {
               ),
             ],
           ),
-          child: DropdownSearch<String>(
-            items: states,
-            selectedItem: value,
+          child: DropdownButtonFormField<String>(
+            value: states.contains(value) ? value : null, // Ensure the selected value exists
+            items: states.map((String state) {
+              return DropdownMenuItem<String>(
+                value: state,
+                child: Text(state),
+              );
+            }).toList(),
             onChanged: onChanged,
-            dropdownDecoratorProps: DropDownDecoratorProps(
-              baseStyle: TextStyle(color: Colors.black),
-              textAlignVertical: TextAlignVertical.center,
-              dropdownSearchDecoration: InputDecoration(
-                hintText: hint,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                hintStyle: TextStyle(color: Colors.grey.shade400),
+            decoration: InputDecoration(
+              hintText: hint,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              hintStyle: TextStyle(color: Colors.grey.shade400),
             ),
-            popupProps: PopupProps.menu(
-              showSearchBox: true,
-              searchFieldProps: TextFieldProps(
-                decoration: InputDecoration(
-                  hintText: "Search State...",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
-          ),
+          )
+
+
         ),
         if (showError)
           Padding(

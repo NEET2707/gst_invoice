@@ -6,6 +6,8 @@ import 'color.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'dart:typed_data';
+import 'dart:convert';
 
 
 class Detail extends StatefulWidget {
@@ -69,22 +71,16 @@ class _DetailState extends State<Detail> {
     client.client_contact, 
     client.client_address, 
     client.client_state, 
-    client.client_gstin
+    client.client_gstin,
+    (SELECT logo FROM companylogo LIMIT 1) AS company_logo  -- Fetch company logo
   FROM invoice 
   INNER JOIN client ON invoice.client_id = client.client_id 
   WHERE invoice.invoice_id = ?
   ''', [widget.invoiceId]);
 
-    final List<Map<String, dynamic>> invoiceItems = await db.query(
-        'invoice_line',
-        where: 'invoice_id = ?',
-        whereArgs: [widget.invoiceId]
-    );
-
     if (results.isNotEmpty) {
       setState(() {
         invoiceDetails = results.first;
-        items = invoiceItems;
       });
     }
   }
@@ -113,8 +109,17 @@ class _DetailState extends State<Detail> {
     final pdf = pw.Document();
 
     bool isPaid = (invoiceDetails?['is_paid'] ?? 0) == 1;
-    // Assuming your invoice table stores 1 for same state and 0 for different state.
     bool isSameState = invoiceDetails?['is_equal_state'] == 1;
+    double taxableAmount = invoiceDetails?['taxable_amount'] ?? 0.0;
+    double totalTax = invoiceDetails?['total_tax'] ?? 0.0;
+    double totalAmount = (invoiceDetails?['total_amount'] ?? 0.0).toDouble();
+    double discount = (invoiceDetails?['discount'] ?? 0.0).toDouble();
+    double discountAmount = (totalAmount * discount) / 100;
+
+    Uint8List? imageBytes;
+    if (invoiceDetails?['company_logo'] != null && invoiceDetails?['company_logo'].isNotEmpty) {
+      imageBytes = base64Decode(invoiceDetails!['company_logo']);
+    }
 
     pdf.addPage(
       pw.Page(
@@ -124,42 +129,64 @@ class _DetailState extends State<Detail> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Company & Client Details
+              // Header Section
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
+                  // Company Logo and Details
                   pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
+                      if (imageBytes != null)
+                        pw.Container(
+                          width: 100,
+                          height: 100,
+                          child: pw.Image(pw.MemoryImage(imageBytes)),
+                        ),
+                      pw.SizedBox(height: 10),
                       pw.Text(
-                        "Company Name: ${invoiceDetails?['client_company'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold),
+                        "${invoiceDetails?['client_company'] ?? 'N/A'}",
+                        style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
                       ),
                       pw.Text(
                         "Address: ${invoiceDetails?['client_address'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 14),
+                        style: pw.TextStyle(fontSize: 12),
                       ),
                       pw.Text(
                         "GSTIN: ${invoiceDetails?['client_gstin'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 14),
+                        style: pw.TextStyle(fontSize: 12),
                       ),
                       pw.Text(
                         "State: ${invoiceDetails?['client_state'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 14),
+                        style: pw.TextStyle(fontSize: 12),
                       ),
                       pw.Text(
                         "Contact: ${invoiceDetails?['client_contact'].toString() ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 14),
+                        style: pw.TextStyle(fontSize: 12),
+                      ),
+                    ],
+                  ),
+
+                  // Invoice Title
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text(
+                        "TAX INVOICE",
+                        style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
+                      ),
+                      pw.Text(
+                        "#${invoiceDetails?['invoice_id'] ?? 'N/A'}",
+                        style: pw.TextStyle(fontSize: 16),
                       ),
                     ],
                   ),
                 ],
               ),
 
-
               pw.SizedBox(height: 20),
 
-              // Invoice Header (Paid/Unpaid)
+              // Invoice Status and Dates
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
@@ -170,38 +197,35 @@ class _DetailState extends State<Detail> {
                       color: isPaid ? PdfColors.green : PdfColors.red,
                     ),
                     child: pw.Text(
-                      isPaid ? "PAID" : "UNPAID",  // ✅ Show Payment Status
+                      isPaid ? "PAID" : "UNPAID",
                       style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold),
                     ),
                   ),
                   pw.Text(
-                    "TAX INVOICE #${invoiceDetails?['invoice_id'] ?? 'N/A'}",
-                    style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                    "Issue Date: ${invoiceDetails?['invoic_date'] ?? 'N/A'}",
+                    style: pw.TextStyle(fontSize: 12),
+                  ),
+                  pw.Text(
+                    "Due Date: ${invoiceDetails?['due_date'] ?? 'N/A'}",
+                    style: pw.TextStyle(fontSize: 12),
                   ),
                 ],
               ),
 
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 20),
 
-              // Amount Due
-              pw.Container(
-                padding: pw.EdgeInsets.all(8),
-                color: PdfColors.green,
-                child: pw.Text(
-                  "Amount Due: ₹${invoiceDetails?['total_amount'] ?? '0.00'}",
-                  style: pw.TextStyle(fontSize: 16, color: PdfColors.white, fontWeight: pw.FontWeight.bold),
-                ),
+              // Bill To Section
+              pw.Text(
+                "Bill To:",
+                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
               ),
-
-              pw.SizedBox(height: 10),
-
-              // Invoice Dates
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text("Issue Date: ${invoiceDetails?['invoic_date'] ?? 'N/A'}"),
-                  pw.Text("Due Date: ${invoiceDetails?['due_date'] ?? 'N/A'}"),
-                ],
+              pw.Text(
+                "${invoiceDetails?['client_company'] ?? 'N/A'}",
+                style: pw.TextStyle(fontSize: 12),
+              ),
+              pw.Text(
+                "${invoiceDetails?['client_address'] ?? 'N/A'}",
+                style: pw.TextStyle(fontSize: 12),
               ),
 
               pw.SizedBox(height: 20),
@@ -213,150 +237,107 @@ class _DetailState extends State<Detail> {
                   0: pw.FlexColumnWidth(1),
                   1: pw.FlexColumnWidth(4),
                   2: pw.FlexColumnWidth(2),
-                  3: pw.FlexColumnWidth(1),
+                  3: pw.FlexColumnWidth(2),
                   4: pw.FlexColumnWidth(2),
-                  5: pw.FlexColumnWidth(2),
                 },
                 children: [
                   // Table Header
                   pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.green),
+                    decoration: pw.BoxDecoration(color: PdfColors.grey300),
                     children: [
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("S No", style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("S No", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                       ),
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("Item Description", style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("Item Description", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                       ),
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("HSN", style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                       ),
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("Qty", style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                       ),
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("Price", style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("Amount", style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold)),
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                       ),
                     ],
                   ),
 
                   // Product Rows
-// Product Rows
                   ...List.generate(productList.length, (index) {
                     final product = productList[index];
                     return pw.TableRow(
                       children: [
                         pw.Padding(
-                          padding: pw.EdgeInsets.all(5),
+                          padding: pw.EdgeInsets.all(8),
                           child: pw.Text("${index + 1}"),
                         ),
                         pw.Padding(
-                          padding: pw.EdgeInsets.all(5),
+                          padding: pw.EdgeInsets.all(8),
                           child: pw.Text(product['product_name'] ?? 'N/A'),
                         ),
                         pw.Padding(
-                          padding: pw.EdgeInsets.all(5),
-                          child: pw.Text("-"), // Placeholder for HSN
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(5),
+                          padding: pw.EdgeInsets.all(8),
                           child: pw.Text("${product['qty']}"),
                         ),
                         pw.Padding(
-                          padding: pw.EdgeInsets.all(5),
+                          padding: pw.EdgeInsets.all(8),
                           child: pw.Text("${product['product_price']}"),
                         ),
                         pw.Padding(
-                          padding: pw.EdgeInsets.all(5),
+                          padding: pw.EdgeInsets.all(8),
                           child: pw.Text("${product['taxableAmount']}"),
                         ),
                       ],
                     );
                   }),
 
-// GST Breakdown Row
+                  // Total Amount Row
                   pw.TableRow(
                     decoration: pw.BoxDecoration(color: PdfColors.grey200),
                     children: [
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("", style: pw.TextStyle(fontWeight: pw.FontWeight.normal,fontSize: 10)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text(isSameState ? "CGST + SGST" : "IGST",
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.normal,fontSize: 10)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
+                        padding: pw.EdgeInsets.all(8),
                         child: pw.Text(""),
                       ),
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("Total Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
                         child: pw.Text(""),
                       ),
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
+                        padding: pw.EdgeInsets.all(8),
                         child: pw.Text(""),
                       ),
                       pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text(
-                          isSameState
-                              ? "${invoiceDetails?['total_cgst'] ?? '0.00'} + ${invoiceDetails?['total_sgst'] ?? '0.00'}"
-                              : "${invoiceDetails?['total_igst'] ?? '0.00'}",
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.normal,fontSize: 10),
-                        ),
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("${(totalAmount).toStringAsFixed(2)}",
+                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                       ),
                     ],
                   ),
-
-// Total Amount Row
-                  pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.grey300),
-                    children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text("TOTAL", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(5),
-                        child: pw.Text(
-                          "${invoiceDetails?['total_amount'] ?? '0.00'}",
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-
                 ],
               ),
 
+              pw.SizedBox(height: 20),
+
+              // Footer Section
+              pw.Text(
+                "Terms and Conditions:",
+                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+              ),
+              pw.Text(
+                "1. Payment is due within 30 days of invoice date.\n2. Late payments are subject to a fee of 2% per month.",
+                style: pw.TextStyle(fontSize: 10),
+              ),
             ],
           );
         },
@@ -587,37 +568,42 @@ class _DetailState extends State<Detail> {
           int qty = product['qty'] ?? 1;
           double taxableAmount = product['taxableAmount'] ?? 0.0;
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 5.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start, // Aligns items to the top
-              children: [
-                // Product Name (Expands to take available space)
-                Expanded(
-                  flex: 2, // Adjust as needed
-                  child: Text(
-                    "${product['product_name']}",
-                    style: TextStyle(fontWeight: FontWeight.normal,fontSize: 20),
-                    overflow: TextOverflow.ellipsis, // Prevents overflow
-                    softWrap: false, // Keeps text in one line
+          return Card(
+            elevation: 3,
+            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start, // Aligns items to the top
+                children: [
+                  // Product Name (Expands to take available space)
+                  Expanded(
+                    flex: 2, // Adjust as needed
+                    child: Text(
+                      "${product['product_name']}",
+                      style: TextStyle(fontWeight: FontWeight.normal,fontSize: 20),
+                      overflow: TextOverflow.ellipsis, // Prevents overflow
+                      softWrap: false, // Keeps text in one line
+                    ),
                   ),
-                ),
-                // Product Details (Price, Quantity, Taxable Amount)
-                Expanded(
-                  flex: 1, // Adjust as needed
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end, // Align text to the right
-                    children: [
-                      Text("${price.toStringAsFixed(2)} X $qty"),
-                      Text(
-                        "${taxableAmount.toStringAsFixed(2)}",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                  // Product Details (Price, Quantity, Taxable Amount)
+                  Expanded(
+                    flex: 1, // Adjust as needed
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end, // Align text to the right
+                      children: [
+                        Text("${price.toStringAsFixed(2)} X $qty"),
+                        Text(
+                          "${taxableAmount.toStringAsFixed(2)}",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           );
         }).toList(),
@@ -627,75 +613,95 @@ class _DetailState extends State<Detail> {
 
   Widget _buildGST() {
     bool isSameState = invoiceDetails?['is_equal_state'] == 1;
+    double taxableAmount = invoiceDetails?['taxable_amount'] ?? 0.0;
+    double totalTax = invoiceDetails?['total_tax'] ?? 0.0;
+    double totalAmount = (invoiceDetails?['total_amount'] ?? 0.0).toDouble();
+    double discount = (invoiceDetails?['discount'] ?? 0.0).toDouble();
+    double totalCcgst = (invoiceDetails?['total_cgst'] ?? 0.0).toDouble();
+    double totalSgst = (invoiceDetails?['total_sgst'] ?? 0.0).toDouble();
+    double totalIgst = (invoiceDetails?['total_igst'] ?? 0.0).toDouble();
+    double discountAmount = (taxableAmount * discount) / 100;
 
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "GST & Total",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            Divider(),
+            _buildRow(
+              title: "Taxable Amount",
+              value: "₹${(taxableAmount ).toStringAsFixed(2)}",
+              isBold: true,
+              color: Colors.green,
+            ),
+            _buildRow(
+              title: "Discount (${discount.toStringAsFixed(2)}%)",
+              value: "₹${(taxableAmount * discount / 100).toStringAsFixed(2)}",
+            ),
+            if (isSameState) ...[
+              _buildRow(
+                title: "CGST",
+                value: "₹${(invoiceDetails?['total_cgst'] ?? 0.0).toStringAsFixed(2)}",
+              ),
+              _buildRow(
+                title: "SGST",
+                value: "₹${(invoiceDetails?['total_sgst'] ?? 0.0).toStringAsFixed(2)}",
+              ),
+            ] else
+              _buildRow(
+                title: "IGST",
+                value: "₹${(invoiceDetails?['total_igst'] ?? 0.0).toStringAsFixed(2)}",
+              ),
+
+            _buildRow(
+              title: "Total Amount",
+              value: "₹${(taxableAmount + (isSameState
+                  ? (totalCcgst + totalSgst)
+                  : totalIgst)).toStringAsFixed(2)}",
+            ),
+
+            Divider(),
+            _buildRow(
+              title: "Final Amount",
+              value: "₹${(taxableAmount + (isSameState
+                  ? (totalCcgst + totalSgst)
+                  : totalIgst) - discountAmount).toStringAsFixed(2)}",
+              isBold: true,
+              color: Colors.blue,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+// Helper method for consistent row formatting
+  Widget _buildRow({required String title, required String value, bool isBold = false, Color color = Colors.black}) {
     return Padding(
-      padding: const EdgeInsets.only(top: 16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(vertical: 5.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  isSameState ? "CGST + SGST" : "IGST",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  isSameState
-                      ? "${(invoiceDetails?['total_cgst'] ?? 0.0).toStringAsFixed(2)} + ${(invoiceDetails?['total_sgst'] ?? 0.0).toStringAsFixed(2)}"
-                      : "${(invoiceDetails?['total_igst'] ?? 0.0).toStringAsFixed(2)}",
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(fontSize: 16, fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
+            ),
           ),
-          SizedBox(height: 10), // Spacing between GST and total amount
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  "Discount",
-                  style: TextStyle(fontSize: 18, ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  " ${(invoiceDetails?['discount'] ?? 0.0).toStringAsFixed(2)}",
-                  style: TextStyle(fontSize: 18, ),
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 10), // Spacing between GST and total amount
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  "Total Amount",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Expanded(
-                child: Text(
-                  " ${(invoiceDetails?['total_amount'] ?? 0.0).toStringAsFixed(2)}",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.right,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(fontSize: 16, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: color),
+              textAlign: TextAlign.right,
+            ),
           ),
         ],
       ),

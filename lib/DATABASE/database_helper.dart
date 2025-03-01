@@ -90,7 +90,7 @@ class DatabaseHelper {
     date_added DATE,
     date_modified DATE,
     is_equal_state INTEGER,
-    is_tax INTEGER
+    is_tax INTEGER,
     is_paid INTEGER DEFAULT 0
   )
 ''');
@@ -212,6 +212,22 @@ class DatabaseHelper {
     final db = await getDatabase();
     return await db.delete('invoice_line', where: 'invoice_line_id = ?', whereArgs: [id]);
   }
+
+  Future<void> saveCompanyLogo(String base64Image) async {
+    final db = await DatabaseHelper.getDatabase();
+
+    // Delete old logo (if any) and insert new one
+    await db.delete('companylogo');
+    await db.insert('companylogo', {'logo': base64Image});
+  }
+
+  Future<String?> getCompanyLogo() async {
+    final db = await DatabaseHelper.getDatabase();
+    List<Map<String, dynamic>> result = await db.query('companylogo');
+    return result.isNotEmpty ? result.first['logo'] : null;
+  }
+
+
 }
 
 Future<int> saveInvoice(Map<String, dynamic> invoiceData) async {
@@ -224,20 +240,9 @@ Future<List<Map<String, dynamic>>> fetchInvoices() async {
   return await db.query('invoice', orderBy: 'invoice_id DESC');
 }
 
-Future<void> saveCompanyLogo(String logoPath) async {
-  final db = await DatabaseHelper.getDatabase();
-  await db.insert(
-    'companylogo',
-    {'logo': logoPath},
-    conflictAlgorithm: ConflictAlgorithm.replace,
-  );
-}
 
-Future<String?> getCompanyLogo() async {
-  final db = await DatabaseHelper.getDatabase();
-  List<Map<String, dynamic>> result = await db.query('companylogo');
-  return result.isNotEmpty ? result.first['logo'] : null;
-}
+
+
 
 
 

@@ -33,7 +33,7 @@ class _SettingsState extends State<Settings> {
   Future<void> _onOrganizationDetailTap() async {
     bool? result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => OrganizationDetail()),
+      MaterialPageRoute(builder: (context) => OrganizationDetail(temp: true,)),
     );
     if (result == true) {
       _loadCompanyDetails();  // ✅ Reload data when coming back

@@ -1,12 +1,19 @@
+import 'dart:io';
+
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:gst_invoice/color.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'DATABASE/database_helper.dart';
 import 'DATABASE/sharedprefhelper.dart';
 import 'gst_invoice.dart';
+import 'dart:typed_data';
+import 'dart:convert';
 
 class OrganizationDetail extends StatefulWidget {
-  const OrganizationDetail({super.key});
+  final bool? temp;
+  const OrganizationDetail({super.key,this.temp});
 
   @override
   State<OrganizationDetail> createState() => _OrganizationDetailState();
@@ -26,12 +33,54 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
   bool isCompanyNameEmpty = false;
   bool isStateEmpty = false;
   bool isGstRateEmpty = false;
+  bool temp = false;
+  XFile? _pickedImage;
 
   @override
   void initState() {
     super.initState();
     _loadCompanyDetails();
+    temp = widget.temp ?? false;
   }
+
+
+  void _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      _removeImage(deleteFromDatabase: false); // Call without await
+
+      Uint8List imageBytes = await image.readAsBytes();
+      String base64Image = base64Encode(imageBytes);
+
+      await DatabaseHelper().saveCompanyLogo(base64Image); // Save new image to database
+
+      setState(() {
+        _pickedImage = image; // Update UI with new image
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Image saved successfully")),
+      );
+    }
+  }
+
+  void _removeImage({bool deleteFromDatabase = true}) {
+    setState(() {
+      _pickedImage = null; // Remove selected image from UI
+    });
+
+    if (deleteFromDatabase) {
+      DatabaseHelper().saveCompanyLogo(""); // Remove image from database (no await)
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Image removed successfully")),
+      );
+    }
+  }
+
+
+
 
   @override
   void didChangeDependencies() {
@@ -40,33 +89,47 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
   }
 
   void _loadCompanyDetails() async {
+    final dbHelper = DatabaseHelper(); // Create instance
     Map<String, dynamic> companyDetails = await SharedPrefHelper.getCompanyDetails();
+    String? savedLogoBase64 = await dbHelper.getCompanyLogo(); // Retrieve logo
+
+    String? savedFilePath;
+
+    if (savedLogoBase64 != null && savedLogoBase64.isNotEmpty) {
+      Uint8List imageBytes = base64Decode(savedLogoBase64);
+      savedFilePath = await _saveToFile(imageBytes); // Await the file saving process
+    }
 
     setState(() {
       companyNameController.text = companyDetails["companyName"] ?? "";
-      selectedState = companyDetails["companyState"];
       gstRateController.text = companyDetails["gstRate"] ?? "0.0";
       gstNumberController.text = companyDetails["gstNumber"] ?? "";
       addressController.text = companyDetails["companyAddress"] ?? "";
       contactController.text = companyDetails["companyContact"] ?? "";
 
-      var gstValue = companyDetails["isGstApplicable"];
-      if (gstValue is bool) {
-        isGstApplicable = gstValue;
-      } else if (gstValue is int) {
-        isGstApplicable = gstValue == 1;
-      } else if (gstValue is String) {
-        isGstApplicable = gstValue.toLowerCase() == "true";
-      } else {
-        isGstApplicable = false;
-      }
+      selectedState = states.contains(companyDetails["companyState"]) ? companyDetails["companyState"] : null;
+      selectedCustomerState = states.contains(companyDetails["defaultCustomerState"]) ? companyDetails["defaultCustomerState"] : null;
 
-      gstType = companyDetails["gstType"] ?? "same"; // ✅ Load gstType
-      selectedCustomerState = companyDetails["defaultCustomerState"];
+      var gstValue = companyDetails["isGstApplicable"];
+      isGstApplicable = gstValue is bool ? gstValue : gstValue.toString().toLowerCase() == "true";
+      gstType = companyDetails["gstType"] ?? "same";
+
+      // Assign saved image only after it has been processed
+      if (savedFilePath != null) {
+        _pickedImage = XFile(savedFilePath);
+      }
     });
 
-    print("isGstApplicable: $isGstApplicable, gstType: $gstType");
+    print("isGstApplicable: $isGstApplicable, gstType: $gstType, selectedState: $selectedState");
   }
+
+  Future<String> _saveToFile(Uint8List bytes) async {
+    final tempDir = await getTemporaryDirectory();
+    final file = File('${tempDir.path}/company_logo.png');
+    await file.writeAsBytes(bytes);
+    return file.path;
+  }
+
 
   void validateAndSave() async {
     setState(() {
@@ -119,7 +182,12 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
     ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Company details updated successfully!"))
     );
-    Navigator.pop(context, true); // Return true
+
+    if(temp){
+      Navigator.pop(context);
+    }else{
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => GstInvoice())); // Return true
+    }
 
 
     // Navigator.pop(context, true);
@@ -133,6 +201,8 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
     "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
     "Uttar Pradesh", "Uttarakhand", "West Bengal"
   ];
+
+
 
   Widget buildDropdownField(String label, String hint, String? value, void Function(String?) onChanged, bool showError) {
     return Column(
@@ -153,30 +223,25 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
               ),
             ],
           ),
-          child: DropdownSearch<String>(
-            items: states,
-            selectedItem: value,
+          child: DropdownButtonFormField<String>(
+            value: states.contains(value) ? value : null, // Ensure the selected value exists
+            items: states.map((String state) {
+              return DropdownMenuItem<String>(
+                value: state,
+                child: Text(state),
+              );
+            }).toList(),
             onChanged: onChanged,
-            dropdownDecoratorProps: DropDownDecoratorProps(
-              baseStyle: TextStyle(color: Colors.black),
-              textAlignVertical: TextAlignVertical.center,
-              dropdownSearchDecoration: InputDecoration(
-                hintText: hint,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                hintStyle: TextStyle(color: Colors.grey.shade400),
+            decoration: InputDecoration(
+              hintText: hint,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
+              contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              hintStyle: TextStyle(color: Colors.grey.shade400),
             ),
-            popupProps: PopupProps.menu(
-              showSearchBox: true,
-              searchFieldProps: TextFieldProps(
-                decoration: InputDecoration(
-                  hintText: "Search State...",
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
-          ),
+          )
+
         ),
         if (showError)
           Padding(
@@ -353,6 +418,53 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
                   selectedCustomerState = value;
                 });
               },false),
+
+              if (temp) ...[
+                SizedBox(height: 20),
+                Text("Upload Image", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _pickImage, // Open image picker
+                  child: Container(
+                    width: double.infinity,
+                    height: 150,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(10),
+                      color: Colors.grey.shade200,
+                    ),
+                    child: _pickedImage == null
+                        ? Center(child: Text("Tap to select image", style: TextStyle(color: Colors.grey.shade600)))
+                        : Stack(
+                      alignment: Alignment.topRight,
+                      children: [
+                        Positioned.fill(
+                          child: Image.file(File(_pickedImage!.path), fit: BoxFit.contain),
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.cancel, color: Colors.red),
+                          onPressed: _removeImage, // Remove selected image
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_pickedImage != null)
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (context) => Dialog(
+                            child: InteractiveViewer(child: Image.file(File(_pickedImage!.path))),
+                          ),
+                        );
+                      },
+                      child: Text("View Image"),
+                    ),
+                  ),
+              ],
+
             ],
           ),
         ),

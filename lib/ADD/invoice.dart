@@ -261,14 +261,23 @@ class _InvoiceState extends State<Invoice> {
       int qty = product['qty'] ?? 1;
       double price = product['product_price'];
       double gstRate = product['product_gst'];
-      return sum + ((price * qty) * gstRate / 100);
+      double gstAmount = ((price * qty) * gstRate) / 100;
+
+      bool isSameState = selectedClient != null && selectedClient!['client_state'] == companyState;
+      double cgst = isSameState ? gstAmount / 2 : 0;
+      double sgst = isSameState ? gstAmount / 2 : 0;
+      double igst = isSameState ? 0 : gstAmount;
+
+      return sum + cgst + sgst + igst;
     });
   }
 
+
   double _getDiscountedTotal() {
     double total = _getTotalPrice() + _getTotalGST();
-    return total - (total * discountPercentage / 100);
+    return total - ((_getTotalPrice() * discountPercentage) / 100);
   }
+
 
 
   void _applyDiscount(BuildContext context) {
@@ -602,20 +611,22 @@ class _InvoiceState extends State<Invoice> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
+                          _buildSummaryRow(
+                            "$discountPercentage% Discount",
+                            "- ₹${(_getTotalPrice() ) * discountPercentage / 100}",
+                            isBold: true,
+                            isHighlighted: true,
+                          ),
                           if (_getTotalGST() > 0)
                             _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
                           _buildSummaryRow(
                             "Total Amount",
+                            // "- ₹${((_getTotalPrice() ) * discountPercentage / 100) + _getTotalGST()}",
                             "₹${(_getTotalPrice() + _getTotalGST()).toStringAsFixed(2)}",
                             isBold: true,
                             isHighlighted: true,
                           ),
-                          _buildSummaryRow(
-                            "$discountPercentage% Discount",
-                            "- ₹${(_getTotalPrice() + _getTotalGST()) * discountPercentage / 100}",
-                            isBold: true,
-                            isHighlighted: true,
-                          ),
+
                           _buildSummaryRow(
                             "Total Amount (After Discount)",
                             "₹${_getDiscountedTotal().toStringAsFixed(2)}",
