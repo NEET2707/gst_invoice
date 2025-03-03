@@ -116,12 +116,17 @@ class _DetailState extends State<Detail> {
     double discount = (invoiceDetails?['discount'] ?? 0.0).toDouble();
     double discountAmount = (totalAmount * discount) / 100;
 
+    double totalCcgst = (invoiceDetails?['total_cgst'] ?? 0.0).toDouble();
+    double totalSgst = (invoiceDetails?['total_sgst'] ?? 0.0).toDouble();
+    double totalIgst = (invoiceDetails?['total_igst'] ?? 0.0).toDouble();
+
     Uint8List? imageBytes;
     if (invoiceDetails?['company_logo'] != null && invoiceDetails?['company_logo'].isNotEmpty) {
       imageBytes = base64Decode(invoiceDetails!['company_logo']);
     }
 
     pdf.addPage(
+
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: pw.EdgeInsets.all(16),
@@ -297,7 +302,131 @@ class _DetailState extends State<Detail> {
                     );
                   }),
 
-                  // Total Amount Row
+                  // GST & Discount Section
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(""),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("Taxable Amount",),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(""),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(""),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("${taxableAmount.toStringAsFixed(2)}"),
+                      ),
+                    ],
+                  ),
+                  pw.TableRow(
+                    children: [
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(""),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("Discount (${discount.toStringAsFixed(2)}%)",),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(""),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text(""),
+                      ),
+                      pw.Padding(
+                        padding: pw.EdgeInsets.all(8),
+                        child: pw.Text("- ${discountAmount.toStringAsFixed(2)}"),
+                      ),
+                    ],
+                  ),
+
+                  if (isSameState) ...[
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text("CGST", ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text("${totalCcgst.toStringAsFixed(2)}"),
+                        ),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text("SGST", ),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text("${totalSgst.toStringAsFixed(2)}"),
+                        ),
+                      ],
+                    ),
+                  ] else
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text("IGST",),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text(""),
+                        ),
+                        pw.Padding(
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Text("${totalIgst.toStringAsFixed(2)}"),
+                        ),
+                      ],
+                    ),
+
                   pw.TableRow(
                     decoration: pw.BoxDecoration(color: PdfColors.grey200),
                     children: [
@@ -307,7 +436,7 @@ class _DetailState extends State<Detail> {
                       ),
                       pw.Padding(
                         padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Total Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text("Final Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                       ),
                       pw.Padding(
                         padding: pw.EdgeInsets.all(8),
@@ -319,8 +448,10 @@ class _DetailState extends State<Detail> {
                       ),
                       pw.Padding(
                         padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("${(totalAmount).toStringAsFixed(2)}",
-                            style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                        child: pw.Text(
+                          "${(taxableAmount + (isSameState ? (totalCcgst + totalSgst) : totalIgst) - discountAmount).toStringAsFixed(2)}",
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
@@ -360,7 +491,6 @@ class _DetailState extends State<Detail> {
       // fetchProducts();
     }
   }
-
 
   void _confirmDelete() {
     showDialog(
@@ -414,7 +544,6 @@ class _DetailState extends State<Detail> {
     // Navigate back after deletion
     Navigator.pop(context);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -527,7 +656,6 @@ class _DetailState extends State<Detail> {
     widget.onStatusUpdated(); // ✅ Notify GstInvoice to refresh
   }
 
-
   Widget _buildBuyerDetails() {
     return _buildSection(
       title: "Buyer Details",
@@ -543,7 +671,6 @@ class _DetailState extends State<Detail> {
       ),
     );
   }
-
 
   Widget _buildInvoiceDetails() {
     return _buildSection(
