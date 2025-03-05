@@ -126,7 +126,6 @@ class _DetailState extends State<Detail> {
     }
 
     pdf.addPage(
-
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: pw.EdgeInsets.all(16),
@@ -135,340 +134,317 @@ class _DetailState extends State<Detail> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               // Header Section
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  // Company Logo and Details
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      if (imageBytes != null)
+              pw.Container(
+                width: PdfPageFormat.a4.width - 32, // Page width minus margins
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    // Company Logo & Details + Bill To Section
+                    pw.SizedBox(
+                      width: PdfPageFormat.a4.width * 0.7, // Constraint width to 70% of the page
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          // Logo + Company Details
+                          pw.Row(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              if (imageBytes != null)
+                                pw.Container(
+                                  width: 100,
+                                  height: 100,
+                                  margin: pw.EdgeInsets.only(right: 10),
+                                  child: pw.Image(pw.MemoryImage(imageBytes)),
+                                ),
+                              pw.Expanded(
+                                child: pw.Column(
+                                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                  children: [
+                                    pw.Text("${invoiceDetails?['client_company'] ?? 'N/A'}",
+                                      style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                                    ),
+                                    pw.Text("Address: ${invoiceDetails?['client_address'] ?? 'N/A'}",
+                                      style: pw.TextStyle(fontSize: 12),
+                                    ),
+                                    pw.Text("GSTIN: ${invoiceDetails?['client_gstin'] ?? 'N/A'}",
+                                      style: pw.TextStyle(fontSize: 12),
+                                    ),
+                                    pw.Text("State: ${invoiceDetails?['client_state'] ?? 'N/A'}",
+                                      style: pw.TextStyle(fontSize: 12),
+                                    ),
+                                    pw.Text("Contact: ${invoiceDetails?['client_contact'].toString() ?? 'N/A'}",
+                                      style: pw.TextStyle(fontSize: 12),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          // Space before Bill To
+                          pw.SizedBox(height: 10),
+
+                          // Bill To Section (placed inside the same column)
+                          pw.Text(
+                            "Bill To:${invoiceDetails?['client_company'] ?? 'N/A'}",
+                            style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            "${invoiceDetails?['client_address'] ?? 'N/A'}",
+                            style: pw.TextStyle(fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // PAID/UNPAID + TAX INVOICE + Issue/Due Dates
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start, // Align everything left
+                      children: [
+                        // Invoice Status (PAID/UNPAID)
                         pw.Container(
-                          width: 100,
-                          height: 100,
-                          child: pw.Image(pw.MemoryImage(imageBytes)),
+                          padding: pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: pw.BoxDecoration(
+                            borderRadius: pw.BorderRadius.circular(4),
+                            color: isPaid ? PdfColors.green : PdfColors.red,
+                          ),
+                          child: pw.Text(
+                            isPaid ? "PAID" : "UNPAID",
+                            style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold),
+                          ),
                         ),
-                      pw.SizedBox(height: 10),
-                      pw.Text(
-                        "${invoiceDetails?['client_company'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
-                      ),
-                      pw.Text(
-                        "Address: ${invoiceDetails?['client_address'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 12),
-                      ),
-                      pw.Text(
-                        "GSTIN: ${invoiceDetails?['client_gstin'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 12),
-                      ),
-                      pw.Text(
-                        "State: ${invoiceDetails?['client_state'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 12),
-                      ),
-                      pw.Text(
-                        "Contact: ${invoiceDetails?['client_contact'].toString() ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
 
-                  // Invoice Title
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text(
-                        "TAX INVOICE",
-                        style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
-                      ),
-                      pw.Text(
-                        "#${invoiceDetails?['invoice_id'] ?? 'N/A'}",
-                        style: pw.TextStyle(fontSize: 16),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                        // Space
+                        pw.SizedBox(height: 10),
 
-              pw.SizedBox(height: 20),
+                        // Invoice Title
+                        pw.Text(
+                          "TAX INVOICE:#${invoiceDetails?['invoice_id'] ?? 'N/A'}",
+                          style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold),
+                        ),
 
-              // Invoice Status and Dates
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Container(
-                    padding: pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: pw.BoxDecoration(
-                      borderRadius: pw.BorderRadius.circular(4),
-                      color: isPaid ? PdfColors.green : PdfColors.red,
+                        // Space
+                        pw.SizedBox(height: 20),
+
+                        // Issue Date & Due Date
+                        pw.Text(
+                          "Issue Date: ${invoiceDetails?['invoice_date'] ?? 'N/A'}",
+                          style: pw.TextStyle(fontSize: 12),
+                        ),
+                        pw.Text(
+                          "Due Date: ${invoiceDetails?['due_date'] ?? 'N/A'}",
+                          style: pw.TextStyle(fontSize: 12),
+                        ),
+                      ],
                     ),
-                    child: pw.Text(
-                      isPaid ? "PAID" : "UNPAID",
-                      style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold),
-                    ),
-                  ),
-                  pw.Text(
-                    "Issue Date: ${invoiceDetails?['invoic_date'] ?? 'N/A'}",
-                    style: pw.TextStyle(fontSize: 12),
-                  ),
-                  pw.Text(
-                    "Due Date: ${invoiceDetails?['due_date'] ?? 'N/A'}",
-                    style: pw.TextStyle(fontSize: 12),
-                  ),
-                ],
-              ),
-
-              pw.SizedBox(height: 20),
-
-              // Bill To Section
-              pw.Text(
-                "Bill To:",
-                style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
-              ),
-              pw.Text(
-                "${invoiceDetails?['client_company'] ?? 'N/A'}",
-                style: pw.TextStyle(fontSize: 12),
-              ),
-              pw.Text(
-                "${invoiceDetails?['client_address'] ?? 'N/A'}",
-                style: pw.TextStyle(fontSize: 12),
+                  ],
+                ),
               ),
 
               pw.SizedBox(height: 20),
 
               // Product Table
-              pw.Table(
-                border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
-                columnWidths: {
-                  0: pw.FlexColumnWidth(1),
-                  1: pw.FlexColumnWidth(4),
-                  2: pw.FlexColumnWidth(2),
-                  3: pw.FlexColumnWidth(2),
-                  4: pw.FlexColumnWidth(2),
-                },
+              pw.Column(
                 children: [
-                  // Table Header
-                  pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.grey300),
+                  // Table divided into two parts
+                  pw.Row(
                     children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("S No", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                      // Left Part (S. No & Item Description)
+                      pw.Expanded(
+                        flex: 1,
+                        child: pw.Table(
+                          border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
+                          columnWidths: {
+                            0: pw.FlexColumnWidth(1),
+                            1: pw.FlexColumnWidth(4),
+                          },
+                          children: [
+                            pw.TableRow(
+                              decoration: pw.BoxDecoration(color: PdfColors.grey300),
+                              children: [
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text("S No", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                ),
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text("Item Description", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                            ...List.generate(productList.length, (index) {
+                              final product = productList[index];
+                              return pw.TableRow(
+                                children: [
+                                  pw.Padding(
+                                    padding: pw.EdgeInsets.all(8),
+                                    child: pw.Text("${index + 1}"),
+                                  ),
+                                  pw.Padding(
+                                    padding: pw.EdgeInsets.all(8),
+                                    child: pw.Text(product['product_name'] ?? 'N/A'),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ],
+                        ),
                       ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Item Description", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+
+                      // Right Part (Qty, Price, Amount)
+                      pw.Expanded(
+                        flex: 1,
+                        child: pw.Table(
+                          border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
+                          columnWidths: {
+                            0: pw.FlexColumnWidth(2),
+                            1: pw.FlexColumnWidth(2),
+                            2: pw.FlexColumnWidth(2),
+                          },
+                          children: [
+                            pw.TableRow(
+                              decoration: pw.BoxDecoration(color: PdfColors.grey300),
+                              children: [
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                ),
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                ),
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text("Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                            ...List.generate(productList.length, (index) {
+                              final product = productList[index];
+                              return pw.TableRow(
+                                children: [
+                                  pw.Padding(
+                                    padding: pw.EdgeInsets.all(8),
+                                    child: pw.Text("${product['qty']}"),
+                                  ),
+                                  pw.Padding(
+                                    padding: pw.EdgeInsets.all(8),
+                                    child: pw.Text("${product['product_price']}"),
+                                  ),
+                                  pw.Padding(
+                                    padding: pw.EdgeInsets.all(8),
+                                    child: pw.Text("${product['taxableAmount']}"),
+                                  ),
+                                ],
+                              );
+                            }),
+                          ],
+                        ),
                       ),
                     ],
                   ),
 
-                  // Product Rows
-                  ...List.generate(productList.length, (index) {
-                    final product = productList[index];
-                    return pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("${index + 1}"),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(product['product_name'] ?? 'N/A'),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("${product['qty']}"),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("${product['product_price']}"),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("${product['taxableAmount']}"),
-                        ),
-                      ],
-                    );
-                  }),
+                  pw.SizedBox(height: 10),
 
-                  // GST & Discount Section
-                  pw.TableRow(
+                  // Tax & Total Section
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
+                      // Right Side: Terms & Conditions (50% width)
+                      pw.Expanded(
+                        flex: 1,
+                        child: pw.Container(
+                          decoration: pw.BoxDecoration(border: pw.Border.all(width: 1, color: PdfColors.grey)),
+                          padding: pw.EdgeInsets.all(8),
+                          child: pw.Column(
+                            crossAxisAlignment: pw.CrossAxisAlignment.start,
+                            children: [
+                              pw.Text("Terms & Conditions", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              pw.Bullet(text: "1. Goods once sold cannot be returned."),
+                              pw.Bullet(text: "2. Payment due within 30 days."),
+                              pw.Bullet(text: "3. Late payments will attract interest charges."),
+                              pw.Bullet(text: "4. Warranty as per manufacturer’s policy."),
+                              pw.Bullet(text: "5. Subject to local jurisdiction."),
+                            ],
+                          ),
+                        ),
                       ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Taxable Amount",),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("${taxableAmount.toStringAsFixed(2)}"),
-                      ),
-                    ],
-                  ),
-                  pw.TableRow(
-                    children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Discount (${discount.toStringAsFixed(2)}%)",),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("- ${discountAmount.toStringAsFixed(2)}"),
+
+                      pw.SizedBox(width: 10), // Space between the two sections
+
+                      // Left Side: Summary Table (50% width)
+                      pw.Expanded(
+                        flex: 1,
+                        child: pw.Table(
+                          border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
+                          columnWidths: {
+                            0: pw.FlexColumnWidth(3),
+                            1: pw.FlexColumnWidth(2),
+                          },
+                          children: [
+                            _buildSummaryRow("Taxable Amount", taxableAmount.toStringAsFixed(2)),
+                            _buildSummaryRow("Discount (${discount.toStringAsFixed(2)}%)", "- ${discountAmount.toStringAsFixed(2)}"),
+                            if (isSameState) ...[
+                              _buildSummaryRow("CGST", totalCcgst.toStringAsFixed(2)),
+                              _buildSummaryRow("SGST", totalSgst.toStringAsFixed(2)),
+                            ] else
+                              _buildSummaryRow("IGST", totalIgst.toStringAsFixed(2)),
+                            pw.TableRow(
+                              decoration: pw.BoxDecoration(color: PdfColors.grey300),
+                              children: [
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text("Grand Total", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                ),
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text(
+                                    "${(taxableAmount + (isSameState ? (totalCcgst + totalSgst) : totalIgst) - discountAmount).toStringAsFixed(2)}",
+                                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
 
-                  if (isSameState) ...[
-                    pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("CGST", ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("${totalCcgst.toStringAsFixed(2)}"),
-                        ),
-                      ],
-                    ),
-                    pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("SGST", ),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("${totalSgst.toStringAsFixed(2)}"),
-                        ),
-                      ],
-                    ),
-                  ] else
-                    pw.TableRow(
-                      children: [
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("IGST",),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text(""),
-                        ),
-                        pw.Padding(
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Text("${totalIgst.toStringAsFixed(2)}"),
-                        ),
-                      ],
-                    ),
 
-                  pw.TableRow(
-                    decoration: pw.BoxDecoration(color: PdfColors.grey200),
+                  pw.SizedBox(height: 30),
+
+                  // Footer Section
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.end,
                     children: [
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text("Final Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(""),
-                      ),
-                      pw.Padding(
-                        padding: pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          "${(taxableAmount + (isSameState ? (totalCcgst + totalSgst) : totalIgst) - discountAmount).toStringAsFixed(2)}",
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+
+                        children: [
+                          pw.Text("Authorized Signatory", style: pw.TextStyle(fontStyle: pw.FontStyle.italic)),
+                          pw.SizedBox(height: 20),
+                          pw.Container(height: 1, width: 100, color: PdfColors.black),
+                        ],
                       ),
                     ],
                   ),
                 ],
               ),
 
-              pw.SizedBox(height: 20),
 
-              // Footer Section
-              pw.Text(
-                "Terms and Conditions:",
-                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-              ),
-              pw.Text(
-                "1. Payment is due within 30 days of invoice date.\n2. Late payments are subject to a fee of 2% per month.",
-                style: pw.TextStyle(fontSize: 10),
-              ),
+              // pw.SizedBox(height: 20),
+              //
+              // // Footer Section
+              // pw.Text(
+              //   "Terms and Conditions:",
+              //   style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
+              // ),
+              // pw.Text(
+              //   "1. Payment is due within 30 days of invoice date.\n2. Late payments are subject to a fee of 2% per month.",
+              //   style: pw.TextStyle(fontSize: 10),
+              // ),
             ],
           );
         },
@@ -543,6 +519,21 @@ class _DetailState extends State<Detail> {
 
     // Navigate back after deletion
     Navigator.pop(context);
+  }
+
+  pw.TableRow _buildSummaryRow(String label, String value) {
+    return pw.TableRow(
+      children: [
+        pw.Padding(
+          padding: pw.EdgeInsets.all(8),
+          child: pw.Text(label),
+        ),
+        pw.Padding(
+          padding: pw.EdgeInsets.all(8),
+          child: pw.Text(value),
+        ),
+      ],
+    );
   }
 
   @override

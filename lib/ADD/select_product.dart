@@ -3,9 +3,12 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gst_invoice/ADD/product.dart';
 import 'package:gst_invoice/DATABASE/database_helper.dart'; // Import Database Helper
 import '../color.dart';
+import 'invoice.dart';
 
 class SelectProduct extends StatefulWidget {
-  const SelectProduct({super.key});
+  bool isyes;
+  bool boom;
+  SelectProduct({super.key, this.isyes = false, required this.boom});
 
   @override
   State<SelectProduct> createState() => _SelectProductState();
@@ -13,11 +16,14 @@ class SelectProduct extends StatefulWidget {
 
 class _SelectProductState extends State<SelectProduct> {
   List<Map<String, dynamic>> productList = [];
+  late bool boom;
 
   @override
   void initState() {
     super.initState();
-    fetchProducts(); // Load products when the page starts
+    fetchProducts();
+    boom = widget.boom;
+    print("00000000000000000000000000000$boom");
   }
 
   Future<void> fetchProducts() async {
@@ -38,39 +44,43 @@ class _SelectProductState extends State<SelectProduct> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        automaticallyImplyLeading: boom,
         backgroundColor: themecolor,
         title: const Text("Select Product"),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(FontAwesomeIcons.warehouse),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => Product()),
-              );
-              fetchProducts(); // Refresh the product list after adding
-            },
-          ),
-        ],
+        // leading: IconButton(
+        //   icon: const Icon(Icons.arrow_back),
+        //   onPressed: () => Navigator.pop(context),
+        // ),
+        // actions: [
+        //   IconButton(
+        //     icon: Icon(FontAwesomeIcons.warehouse),
+        //     onPressed: () async {
+        //       await Navigator.push(
+        //         context,
+        //         MaterialPageRoute(builder: (context) => Product()),
+        //       );
+        //       fetchProducts(); // Refresh the product list after adding
+        //     },
+        //   ),
+        // ],
       ),
       body: Column(
         children: [
           // Search bar
           Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: "Search",
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10.0),
+            padding: const EdgeInsets.all(8.0),
+            child: SizedBox(
+              height: 50,
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: "Search",
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
-                filled: true,
-                fillColor: Colors.white,
               ),
             ),
           ),
@@ -97,70 +107,76 @@ class _SelectProductState extends State<SelectProduct> {
             )
                 : ListView.builder(
               itemCount: productList.length,
-              itemBuilder: (context, index) {
+              itemBuilder: (context, index
+                  ) {
                 final product = productList[index];
                 return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  elevation: 3,
+                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                  elevation: 1,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: themecolor,
+                      child: Text(
+                        product['product_name'][0].toUpperCase(), // Show first letter
+                        style: TextStyle(color: Colors.white),
+                      ),                    ),
                     title: Text(product['product_name'], style: TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text("₹${product['product_price']} | GST: ${product['product_gst']}%"),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Edit Button
-                        IconButton(
-                          icon: const Icon(Icons.edit, color: Colors.blue),
-                            onPressed: () async {
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_vert, color: Colors.black54), // Three-dot icon
+                          onSelected: (value) async {
+                            if (value == 'edit') {
                               bool? result = await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (context) => Product(product: product), // Pass product data
                                 ),
                               );
-
                               if (result == true) {
-                                fetchProducts();
-                                print("===============================================");
-                                print("fetchProducts");// Refresh the product list after update
+                                fetchProducts(); // Refresh the product list after update
+                                print("Product list updated");
                               }
+                            } else if (value == 'delete') {
+                              _confirmDeleteProduct(context, product['product_id']); // Show delete confirmation
                             }
-                        ),
-
-                        // Delete Button
-                        IconButton(
-                          icon: const Icon(Icons.delete, color: Colors.red),
-                          onPressed: () {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text("Delete Product"),
-                                content: const Text("Are you sure you want to delete this product?"),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text("Cancel"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      deleteProduct(product['product_id']);
-                                      Navigator.pop(context);
-                                    },
-                                    child: const Text("Delete",
-                                        style: TextStyle(color: Colors.red)),
-                                  ),
+                          },
+                          itemBuilder: (context) => [
+                            PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit, color: Colors.blue),
+                                  SizedBox(width: 8),
+                                  Text("Edit"),
                                 ],
                               ),
-                            );
-                          },
+                            ),
+                            PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text("Delete"),
+                                ],
+                              ),
+                            ),
+                          ],
                         ),
+
                       ],
                     ),
                     onTap: () {
-                      Navigator.pop(context, product); // Return selected product
+                      if(widget.isyes == true)
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => Invoice(product: productList)));
+                      else
+                        Navigator.pop(context, product);
                     },
                   ),
                 );
@@ -169,6 +185,42 @@ class _SelectProductState extends State<SelectProduct> {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: themecolor,
+        onPressed: () async {
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => Product()),
+          );
+          fetchProducts(); // Refresh the product list after adding
+        },
+        child: Icon(Icons.store, color: Colors.white, size: 30), // Using a store icon as a replacement
+      ),
     );
   }
 }
+
+void _confirmDeleteProduct(BuildContext context, int productId) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text("Delete Product"),
+      content: const Text("Are you sure you want to delete this product?"),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel"),
+        ),
+        TextButton(
+          onPressed: () async {
+            await DatabaseHelper().deleteProduct(productId);
+            await DatabaseHelper().getProducts();
+            Navigator.pop(context);
+          },
+          child: const Text("Delete", style: TextStyle(color: Colors.red)),
+        ),
+      ],
+    ),
+  );
+}
+

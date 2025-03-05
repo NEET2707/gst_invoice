@@ -8,9 +8,11 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class Invoice extends StatefulWidget {
+  Map<String, dynamic>? selectedClient;
+  List<Map<String, dynamic>>? product;
   final int? invoiceId; // Add invoiceId parameter
 
-  const Invoice({Key? key, this.invoiceId}) : super(key: key);
+  Invoice({Key? key, this.invoiceId, this.selectedClient,  this.product}) : super(key: key);
 
   @override
   State<Invoice> createState() => _InvoiceState();
@@ -29,6 +31,7 @@ class _InvoiceState extends State<Invoice> {
   String companyName = "company_state";
   String companyState = "company_state";
   double discountPercentage = 0;
+  late String todayDate;
 
 
   @override
@@ -37,6 +40,9 @@ class _InvoiceState extends State<Invoice> {
     String formattedDate = DateFormat("dd MMM yyyy").format(DateTime.now());
     invoiceDateController.text = formattedDate;
     dueDateController.text = formattedDate;
+    todayDate = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    selectedClient = widget.selectedClient;
+    selectedProducts = widget.product ?? [];
 
     _loadCompanyDetails();
 
@@ -199,6 +205,7 @@ class _InvoiceState extends State<Invoice> {
           'sgst': isSameState ? totalSGST : 0,
           'igst': isSameState ? 0 : totalIGST,
           'discount': discountPercentage, // Save discount value
+          'dateadded': todayDate,
         });
       }
     }
@@ -236,7 +243,7 @@ class _InvoiceState extends State<Invoice> {
   void _selectProduct() async {
     final selectedProduct = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => const SelectProduct()),
+      MaterialPageRoute(builder: (context) => SelectProduct(boom: true)),
     );
 
     if (selectedProduct != null) {
@@ -454,18 +461,25 @@ class _InvoiceState extends State<Invoice> {
           children: [
             _buildSection(
               title: "Buyer Details",
+
               isBuyerSection: true,  // Set to true for the Buyer Details section
               child: GestureDetector(
                 onTap: () async {
-                  final client = await Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const SelectClient()),
-                  );
-                  if (client != null) {
-                    setState(() {
-                      selectedClient = client;
-                    });
-                  }
+                  // if(widget.selectedClient != null){
+                  //   setState(() {
+                  //     selectedClient = widget.selectedClient;
+                  //   });
+                  // }else{
+                    final client = await Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
+                    );
+                    if (client != null) {
+                      setState(() {
+                        selectedClient = client;
+                      });
+                    }
+                  // }
                 },
                 child: _buildBuyerDetails(),
               ),
@@ -718,7 +732,7 @@ class _InvoiceState extends State<Invoice> {
                       onPressed: () async {
                         final client = await Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const SelectClient()),
+                          MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
                         );
                         if (client != null) {
                           setState(() {

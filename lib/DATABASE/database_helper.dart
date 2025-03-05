@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:intl/intl.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
@@ -226,6 +227,48 @@ class DatabaseHelper {
     List<Map<String, dynamic>> result = await db.query('companylogo');
     return result.isNotEmpty ? result.first['logo'] : null;
   }
+
+  static Future<List<Map<String, dynamic>>> getProductWiseReport(DateTime selectedDate) async {
+    final db = await DatabaseHelper.getDatabase();
+
+    String month = selectedDate.month.toString().padLeft(2, '0');
+    String year = selectedDate.year.toString();
+
+    return await db.rawQuery('''
+    SELECT 
+      p.product_name,
+      SUM(il.qty) as total_qty,
+      SUM(il.total) as total_amount,
+      SUM(il.cgst) as total_cgst,
+      SUM(il.sgst) as total_sgst,
+      SUM(il.igst) as total_igst,
+      SUM(il.discount) as total_discount
+    FROM invoice_line il
+    JOIN product p ON il.product_id = p.product_id
+    WHERE substr(il.dateadded, 4, 2) = ? AND substr(il.dateadded, 7, 4) = ?
+    GROUP BY il.product_id
+  ''', [month, year]);
+  }
+
+  static Future<List<Map<String, dynamic>>> getClientReport(DateTime selectedDate) async {
+    final db = await DatabaseHelper.getDatabase();
+
+    String month = selectedDate.month.toString().padLeft(2, '0');
+    String year = selectedDate.year.toString();
+
+    return await db.rawQuery('''
+  SELECT 
+    i.invoice_id,  -- Use invoice_id instead of invoice_number if needed
+    i.date_added,
+    c.client_company,
+    i.total_amount
+  FROM invoice i
+  JOIN client c ON i.client_id = c.client_id
+  WHERE substr(i.date_added, 6, 2) = ? AND substr(i.date_added, 1, 4) = ?
+  ORDER BY i.date_added
+''', [month, year]);
+  }
+
 
 
 }
