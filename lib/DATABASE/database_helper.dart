@@ -1,7 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:fluttertoast/fluttertoast.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:saf_stream/saf_stream.dart';
 import 'package:saf_util/saf_util.dart';
 
 import 'package:sqflite/sqflite.dart';
@@ -334,18 +339,8 @@ class DatabaseHelper {
     }
 
     try {
-      FilePickerResult? result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['csv'],
-      );
 
-      if (result == null) {
-        print("❌ No file selected!");
-        return false;
-      }
-
-      String filePath = result.files.single.path!;
-      bool success = await importFromCSV(filePath);
+      bool success = await importFromCSV();
       return success;
     } catch (e) {
       print("❌ Error during restore: $e");
@@ -353,12 +348,26 @@ class DatabaseHelper {
     }
   }
 
-  static Future<bool> exportToCSV(String filePath) async {
-    try {
-      Database db = await getDatabase();
-      List<String> tables = ['company', 'product', 'invoice'];
 
-      List<List<String>> csvData = [['Table', 'Data']];
+  Future<String?> picksafdirectory() async {
+  final _safUtil = SafUtil();
+  String? selectedDirectory = await _safUtil.openDirectory();
+  if (selectedDirectory == null) {
+    Fluttertoast.showToast(msg: "No folder selected.");
+    return null;
+  }
+  return selectedDirectory;
+}
+
+  static Future<bool> exportToCSV(String filePath) async {
+   final _safStreamPlugin = SafStream();
+   final _safUtil = SafUtil();
+  String? selectedDirectory = await _safUtil.openDirectory();
+  try {
+      Database db = await getDatabase();
+      List<String> tables = ['client','product','invoice','invoice_line', 'companylogo'];
+
+      List<List<String>> csvData = [];
       for (String table in tables) {
         List<Map<String, dynamic>> rows = await db.query(table);
         print("roesssss : $rows");
@@ -370,14 +379,12 @@ class DatabaseHelper {
           }
         }
       }
-
       String csv = const ListToCsvConverter().convert(csvData);
-      print("csvvvvv -->n $csv");
-      File file = File(filePath);
-      print("fileeeeeeeee --> $file");
-      await file.writeAsString(csv);
+  Uint8List unitdata = Uint8List.fromList(csv.codeUnits);
+   await _safStreamPlugin.writeFileBytes(selectedDirectory??"", "fxdfhjh.csv", "text/csv", unitdata);
 
-      print("✅ Exported to: $filePath");
+
+      print("✅ Exported Success");
       return true;
     } catch (e) {
       print("❌ Error during export: $e");
@@ -385,24 +392,48 @@ class DatabaseHelper {
     }
   }
 
-  static Future<bool> importFromCSV(String filePath) async {
+  static Future<bool> importFromCSV() async {
+    final _safUtil = SafUtil();
+    String? selectedFilePath = await _safUtil.openFile();  // Use openFile() for file selection
+
+    if (selectedFilePath == null) {
+      print("❌ No file selected.");
+      return false;
+    }
+
     try {
-      File file = File(filePath);
-      String fileContent = await file.readAsString();
+      final _safStreamPlugin = SafStream();
+      Uint8List fileBytes = await _safStreamPlugin.readFileBytes(selectedFilePath);
+
+      // Convert bytes to string
+      String fileContent = utf8.decode(fileBytes);
       List<List<dynamic>> csvData = const CsvToListConverter().convert(fileContent);
+
+      print("CSV Data: $csvData");
 
       Database db = await getDatabase();
       String? currentTable;
+      List<String> tables = ['client', 'product', 'invoice', 'invoice_line', 'companylogo'];
 
-      for (List<dynamic> row in csvData) {
-        if (row.length == 1) {
-          currentTable = row[0].toString();
-        } else if (currentTable != null) {
+      for (int rowIndex = 0; rowIndex < csvData.length; rowIndex++) {
+        List<dynamic> row = csvData[rowIndex];
+
+        if (row.isEmpty) continue; // Skip empty rows
+
+        if (row.length == 1 && tables.contains(row[0].toString().trim().toLowerCase())) {
+          // Identify new table
+          currentTable = row[0].toString().trim();
+          print("Switching to table: $currentTable");
+        } else if (currentTable != null && rowIndex > 0) {
+          // Check if this row is the column headers
+          List<String> columns = csvData[rowIndex - 1].map((e) => e.toString()).toList();
+          if (columns.length <= 1) continue; // Skip invalid headers
+
           Map<String, dynamic> rowData = {};
-          List<String> columns = csvData[csvData.indexOf(row) - 1].map((e) => e.toString()).toList();
-
           for (int i = 0; i < columns.length; i++) {
-            rowData[columns[i]] = row[i];
+            if (i < row.length) {
+              rowData[columns[i]] = row[i];
+            }
           }
 
           await db.insert(currentTable, rowData, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -416,6 +447,8 @@ class DatabaseHelper {
       return false;
     }
   }
+
+
 }
 
 

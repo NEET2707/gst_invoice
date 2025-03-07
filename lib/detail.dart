@@ -717,7 +717,7 @@ class _DetailState extends State<Detail> {
       child: Column(
         children: productList.map((product) {
           double price = product['product_price'] ?? 0.0;
-          int qty = product['qty'] ?? 1;
+          int qty = int.tryParse(product['qty'].toString()) ?? 1;
           double taxableAmount = product['taxableAmount'] ?? 0.0;
 
           return Card(

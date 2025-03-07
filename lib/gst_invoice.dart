@@ -207,7 +207,7 @@ class _GstInvoiceState extends State<GstInvoice>{
                     context,
                     MaterialPageRoute(
                       builder: (context) => Detail(
-                        invoiceId: invoice['invoice_id'],
+                        invoiceId: int.parse(invoice['invoice_id'].toString()), // Convert to int
                         clientid: int.parse(invoice['client_id'].toString()),
                         onStatusUpdated: loadInvoices,
                       ),
