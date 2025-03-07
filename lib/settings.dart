@@ -161,7 +161,7 @@ State: ${companyDetails?['companyState'] ?? 'N/A'}
         leading: Icon(icon, size: 30, color: Colors.grey[700]),
         title: Text(
           title,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
         subtitle: Text(subtitle),
         onTap: onTap,

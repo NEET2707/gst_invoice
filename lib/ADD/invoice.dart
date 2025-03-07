@@ -95,8 +95,7 @@ class _InvoiceState extends State<Invoice> {
   ''', [invoiceId]);
 
     setState(() {
-      selectedProducts = productData;
-    });
+      selectedProducts = List.from(productData);    });
   }
 
   Future<void> saveInvoice() async {
@@ -248,7 +247,6 @@ class _InvoiceState extends State<Invoice> {
 
     if (selectedProduct != null) {
       setState(() {
-        // Ensure the list is mutable before adding a new product
         selectedProducts = List.from(selectedProducts)..add({...selectedProduct, 'qty': 1});
       });
     }
@@ -349,56 +347,27 @@ class _InvoiceState extends State<Invoice> {
             ElevatedButton(
               onPressed: () async {
                 int updatedQty = int.tryParse(qtyController.text) ?? 1;
-
-                setState(() {
-                  // Create a mutable copy of the selected product
-                  Map<String, dynamic> updatedProduct = {...selectedProducts[index]};
-
-                  // Update quantity
-                  updatedProduct['qty'] = updatedQty;
-
-                  // Recalculate total price
-                  double price = updatedProduct['product_price'];
-                  double gstRate = updatedProduct['product_gst'];
-                  double totalPrice = price * updatedQty;
-                  double gstAmount = (totalPrice * gstRate) / 100;
-
-                  // Determine CGST, SGST, IGST
-                  bool isSameState = selectedClient!['client_state'] == companyState;
-                  updatedProduct['total'] = totalPrice + gstAmount;
-                  updatedProduct['cgst'] = isSameState ? gstAmount / 2 : 0;
-                  updatedProduct['sgst'] = isSameState ? gstAmount / 2 : 0;
-                  updatedProduct['igst'] = isSameState ? 0 : gstAmount;
-
-                  // Update the list in a way Flutter detects the change
-                  selectedProducts = List.from(selectedProducts)..[index] = updatedProduct;
-                });
-
-                // Update database
                 int productId = selectedProducts[index]['product_id'];
-                int invoiceId = selectedProducts[index]['invoice_id'] ?? 0;
+                int invoiceId = widget.invoiceId ?? 0;
 
+                // ✅ Update Database with New Quantity
                 final db = await DatabaseHelper.getDatabase();
-                final List<Map<String, dynamic>> invoiceLine = await db.query(
+                await db.update(
                   'invoice_line',
+                  {'qty': updatedQty},
                   where: 'invoice_id = ? AND product_id = ?',
                   whereArgs: [invoiceId, productId],
                 );
 
-                if (invoiceLine.isNotEmpty) {
-                  int invoiceLineId = invoiceLine.first['invoice_line_id'];
-                  await DatabaseHelper.updateInvoiceLine(invoiceLineId, {
-                    'qty': updatedQty,
-                    'total': selectedProducts[index]['total'],
-                    'cgst': selectedProducts[index]['cgst'],
-                    'sgst': selectedProducts[index]['sgst'],
-                    'igst': selectedProducts[index]['igst'],
-                  });
+                print("Database Updated: Product $productId, New Qty: $updatedQty");
 
-                  print("Invoice line updated successfully!");
-                }
+                // ✅ Fetch Updated Data After Saving
+                await _loadInvoiceDetails(invoiceId); // Refresh the invoice
 
-                Navigator.pop(context);
+                // ✅ Update UI
+                setState(() {});
+
+                Navigator.pop(context); // Close the dialog
               },
               child: Text("Save"),
             ),
@@ -465,11 +434,6 @@ class _InvoiceState extends State<Invoice> {
               isBuyerSection: true,  // Set to true for the Buyer Details section
               child: GestureDetector(
                 onTap: () async {
-                  // if(widget.selectedClient != null){
-                  //   setState(() {
-                  //     selectedClient = widget.selectedClient;
-                  //   });
-                  // }else{
                     final client = await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
@@ -479,7 +443,6 @@ class _InvoiceState extends State<Invoice> {
                         selectedClient = client;
                       });
                     }
-                  // }
                 },
                 child: _buildBuyerDetails(),
               ),
@@ -689,7 +652,7 @@ class _InvoiceState extends State<Invoice> {
             _buildDetailRow(FontAwesomeIcons.mapMarkerAlt, selectedClient!['client_address'].toString()), // ✅ Convert to String
 
           if (selectedClient!['client_gstin'] != null)
-            Text("GSTIN: ${selectedClient!['client_gstin']}", style: const TextStyle(fontWeight: FontWeight.bold)),
+            Text("GSTIN: ${selectedClient!['client_gstin']}", style: TextStyle(fontWeight: FontWeight.w500)),
 
           if (selectedClient!['client_state'] != null)
             _buildDetailRow(FontAwesomeIcons.map, selectedClient!['client_state'].toString()), // ✅ Convert to String

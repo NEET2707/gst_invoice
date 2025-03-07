@@ -65,28 +65,12 @@ class _SelectClientState extends State<SelectClient> {
         automaticallyImplyLeading: back,
         backgroundColor: themecolor,
         title: const Text("Select Client"),
-        // leading: IconButton(
-        //   icon: const Icon(Icons.arrow_back),
-        //   onPressed: () => Navigator.pop(context),
-        // ),
-        // actions: [
-        //   IconButton(
-        //     icon: const Icon(FontAwesomeIcons.userPlus),
-        //     onPressed: () async {
-        //       await Navigator.push(
-        //         context,
-        //         MaterialPageRoute(builder: (context) => AddClient()),
-        //       );
-        //       fetchClients(); // Refresh list after adding a client
-        //     },
-        //   ),
-        // ],
       ),
       body: Column(
         children: [
           // Search bar
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.only(top: 10,bottom: 6, left: 5, right: 5),
             child: SizedBox(
               height: 50,
               child: TextField(
@@ -109,38 +93,36 @@ class _SelectClientState extends State<SelectClient> {
           Expanded(
             child: filteredClients.isEmpty
                 ? const Center(child: Text("No Clients Found"))
-                : ListView.builder(
-              itemCount: filteredClients.length,
-              itemBuilder: (context, index) {
-                final client = filteredClients[index];
-                return GestureDetector(
-                  onTap: () {
-                    selectedClient = {
-                      'client_id':client['client_id'].toString(),
-                      'client_company': client['client_company'].toString(),
-                      'client_address': client['client_address'].toString(),
-                      'client_gstin': client['client_gstin'].toString(),
-                      'client_state': client['client_state'].toString(),
-                      'client_contact': client['client_contact'].toString(),
-                    };
-
-
-                    if(widget.pass == true)
-                      Navigator.push(context, MaterialPageRoute(builder: (context) => Invoice(selectedClient: selectedClient,)));
-                    else
-                      Navigator.pop(context, selectedClient);
-
-                    print("================");
-                    print(selectedClient);
-                  },
-
-                  child: Card(
-                    margin:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                : Card(
+              child: ListView.separated( // ✅ Use ListView.separated
+                itemCount: filteredClients.length,
+                separatorBuilder: (context, index) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(color: Colors.grey.shade300, thickness: 1),
+                ),
+                itemBuilder: (context, index) {
+                  final client = filteredClients[index];
+                  return GestureDetector(
+                    onTap: () {
+                      selectedClient = {
+                        'client_id': client['client_id'].toString(),
+                        'client_company': client['client_company'].toString(),
+                        'client_address': client['client_address'].toString(),
+                        'client_gstin': client['client_gstin'].toString(),
+                        'client_state': client['client_state'].toString(),
+                        'client_contact': client['client_contact'].toString(),
+                      };
+                  
+                  
+                      if(widget.pass == true)
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => Invoice(selectedClient: selectedClient,)));
+                      else
+                        Navigator.pop(context, selectedClient);
+                  
+                      print("================");
+                      print(selectedClient);
+                    },
+                  
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: themecolor,
@@ -151,13 +133,13 @@ class _SelectClientState extends State<SelectClient> {
                       ),
                       title: Text(
                         client['client_company'],
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: const TextStyle(fontWeight: FontWeight.w500,fontSize: 18),
                       ),
                       subtitle: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text("State: ${client['client_state']}"),
-                          // Text("Contact: ${client['client_contact']}"),
+                          Text("Contact: ${client['client_contact']}"),
                         ],
                       ),
                       trailing: Row(
@@ -228,10 +210,10 @@ class _SelectClientState extends State<SelectClient> {
                     ],
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                                },
+                              ),
+                ),
           ),
         ],
       ),
@@ -244,7 +226,7 @@ class _SelectClientState extends State<SelectClient> {
           );
           fetchClients();
         },
-        child: Icon(Icons.supervised_user_circle , color: Colors.white, size: 30),
+        child: Icon(Icons.add , color: Colors.white, size: 34),
       ),
     );
   }

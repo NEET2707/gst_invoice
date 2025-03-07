@@ -12,7 +12,6 @@ class SharedPrefHelper {
   static const String _defaultCustomerStateKey = "defaultCustomerState";
   static const String _gstTypeKey = "gstType";
 
-  /// Save company details
   static Future<void> saveCompanyDetails({
     required String companyName,
     required String companyState,
@@ -23,19 +22,37 @@ class SharedPrefHelper {
     required bool isGstApplicable,
     required String defaultCustomerState,
     required String gstType,
+    String? bankDetails,
+    String? tandC,
   }) async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_isDataSavedKey, true);
-    await prefs.setString(_companyNameKey, companyName);
-    await prefs.setString(_companyStateKey, companyState);
-    await prefs.setString(_gstRateKey, gstRate);
-    await prefs.setString(_gstNumberKey, gstNumber);
-    await prefs.setString(_companyAddressKey, companyAddress);
-    await prefs.setString(_companyContactKey, companyContact);
-    await prefs.setInt(_isGstApplicableKey, isGstApplicable ? 1 : 0);
-    await prefs.setString(_defaultCustomerStateKey, defaultCustomerState);
-    await prefs.setString(_gstTypeKey, gstType);
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString("companyName", companyName);
+    await prefs.setString("companyState", companyState);
+    await prefs.setString("gstRate", gstRate);
+    await prefs.setString("gstNumber", gstNumber);
+    await prefs.setString("companyAddress", companyAddress);
+    await prefs.setString("companyContact", companyContact);
+
+    // ✅ Fix: Store GST applicable flag correctly
+    await prefs.setInt("isGstApplicable", isGstApplicable ? 1 : 0);
+
+    await prefs.setString("defaultCustomerState", defaultCustomerState);
+    await prefs.setString("gstType", gstType);
+
+    if (bankDetails != null) {
+      await prefs.setString("BankDetails", bankDetails);
+    }
+    if (tandC != null) {
+      await prefs.setString("TandC", tandC);
+    }
+
+    // ✅ **Mark company data as saved**
+    await prefs.setBool("isDataSaved", true); // 🚀 THIS LINE FIXES THE ISSUE
   }
+
+
+
 
   /// Check if company data is saved
   static Future<bool> isCompanyDataSaved() async {
@@ -43,21 +60,28 @@ class SharedPrefHelper {
     return prefs.getBool(_isDataSavedKey) ?? false;
   }
 
-  /// Retrieve company details
   static Future<Map<String, dynamic>> getCompanyDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final prefs = await SharedPreferences.getInstance();
+
     return {
-      "companyName": prefs.getString(_companyNameKey) ?? "",
-      "companyState": prefs.getString(_companyStateKey) ?? "",
-      "gstRate": prefs.getString(_gstRateKey) ?? "0.0",
-      "gstNumber": prefs.getString(_gstNumberKey) ?? "",
-      "companyAddress": prefs.getString(_companyAddressKey) ?? "",
-      "companyContact": prefs.getString(_companyContactKey) ?? "",
-      "isGstApplicable": (prefs.getInt(_isGstApplicableKey) ?? 0) == 1,
-      "defaultCustomerState": prefs.getString(_defaultCustomerStateKey) ?? "",
-      "gstType": prefs.getString(_gstTypeKey) ?? "same", // ✅ Retrieve gstType
+      "companyName": prefs.getString("companyName") ?? "",
+      "companyState": prefs.getString("companyState") ?? "",
+      "gstRate": prefs.getString("gstRate") ?? "0.0",
+      "gstNumber": prefs.getString("gstNumber") ?? "",
+      "companyAddress": prefs.getString("companyAddress") ?? "",
+      "companyContact": prefs.getString("companyContact") ?? "",
+
+      // ✅ Fix: Convert stored int (0/1) to bool
+      "isGstApplicable": prefs.getInt("isGstApplicable") == 1 ? true : false,
+
+      "defaultCustomerState": prefs.getString("defaultCustomerState") ?? "",
+      "gstType": prefs.getString("gstType") ?? "same",
+      "BankDetails": prefs.getString("BankDetails") ?? "",
+      "TandC": prefs.getString("TandC") ?? "",
     };
   }
+
+
 
 
 

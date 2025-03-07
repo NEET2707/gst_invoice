@@ -90,7 +90,6 @@ class _AddClientState extends State<AddClient> {
     );
   }
 
-
   Future<void> saveClientData() async {
     if (selectedState == null || selectedState!.isEmpty) {
       setState(() {

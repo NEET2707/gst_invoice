@@ -16,6 +16,10 @@ class SelectProduct extends StatefulWidget {
 
 class _SelectProductState extends State<SelectProduct> {
   List<Map<String, dynamic>> productList = [];
+  List<Map<String, dynamic>> product = []; // ✅ Declare this
+  List<Map<String, dynamic>> filteredProducts = []; // ✅ Declare this
+
+  TextEditingController searchController = TextEditingController();
   late bool boom;
 
   @override
@@ -32,6 +36,20 @@ class _SelectProductState extends State<SelectProduct> {
       productList = data;
       print("+++++++++++++++++++++++++++++++++++");
       print(productList);
+      product = List.from(productList); // Ensures `product` gets a fresh copy
+      filteredProducts = List.from(productList); // Rename and ensure consistency
+    });
+  }
+
+  void filterProduct(String query) {
+    setState(() {
+      filteredProducts = productList
+          .where((product) =>
+      product['product_name']
+          .toLowerCase()
+          .contains(query.toLowerCase()) ||
+          product['product_code'].toString().contains(query)) // Use relevant fields
+          .toList();
     });
   }
 
@@ -47,31 +65,17 @@ class _SelectProductState extends State<SelectProduct> {
         automaticallyImplyLeading: boom,
         backgroundColor: themecolor,
         title: const Text("Select Product"),
-        // leading: IconButton(
-        //   icon: const Icon(Icons.arrow_back),
-        //   onPressed: () => Navigator.pop(context),
-        // ),
-        // actions: [
-        //   IconButton(
-        //     icon: Icon(FontAwesomeIcons.warehouse),
-        //     onPressed: () async {
-        //       await Navigator.push(
-        //         context,
-        //         MaterialPageRoute(builder: (context) => Product()),
-        //       );
-        //       fetchProducts(); // Refresh the product list after adding
-        //     },
-        //   ),
-        // ],
       ),
       body: Column(
         children: [
           // Search bar
           Padding(
-            padding: const EdgeInsets.all(8.0),
+            padding: const EdgeInsets.only(top: 10,bottom: 6, left: 5, right: 5),
             child: SizedBox(
               height: 50,
               child: TextField(
+                controller: searchController,
+                onChanged: filterProduct,
                 decoration: InputDecoration(
                   hintText: "Search",
                   prefixIcon: const Icon(Icons.search),
@@ -105,25 +109,24 @@ class _SelectProductState extends State<SelectProduct> {
                 ],
               ),
             )
-                : ListView.builder(
-              itemCount: productList.length,
-              itemBuilder: (context, index
-                  ) {
-                final product = productList[index];
-                return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                  elevation: 1,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: ListTile(
+                : Card(
+              child: ListView.separated(
+                itemCount: filteredProducts.length,
+                separatorBuilder: (context, index) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(color: Colors.grey.shade300, thickness: 1),
+                ),
+                itemBuilder: (context, index) {
+                  final product = filteredProducts[index];
+                  return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: themecolor,
                       child: Text(
-                        product['product_name'][0].toUpperCase(), // Show first letter
+                        product['product_name'][0].toUpperCase(),
                         style: TextStyle(color: Colors.white),
-                      ),                    ),
-                    title: Text(product['product_name'], style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    title: Text(product['product_name'], style: TextStyle(fontWeight: FontWeight.w500, fontSize: 18)),
                     subtitle: Text("₹${product['product_price']} | GST: ${product['product_gst']}%"),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -178,10 +181,10 @@ class _SelectProductState extends State<SelectProduct> {
                       else
                         Navigator.pop(context, product);
                     },
-                  ),
-                );
-              },
-            ),
+                  );
+                                },
+                              ),
+                ),
           ),
         ],
       ),
@@ -194,7 +197,7 @@ class _SelectProductState extends State<SelectProduct> {
           );
           fetchProducts(); // Refresh the product list after adding
         },
-        child: Icon(Icons.store, color: Colors.white, size: 30), // Using a store icon as a replacement
+        child: Icon(Icons.add, color: Colors.white, size: 34), // Using a store icon as a replacement
       ),
     );
   }

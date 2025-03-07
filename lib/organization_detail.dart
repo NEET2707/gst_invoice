@@ -27,6 +27,8 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
   TextEditingController gstNumberController = TextEditingController();
   TextEditingController addressController = TextEditingController();
   TextEditingController contactController = TextEditingController();
+  TextEditingController bankDetailsController = TextEditingController();
+  TextEditingController termsController = TextEditingController();
   String? selectedState;
   String? selectedCustomerState;
   // Validation states
@@ -89,16 +91,20 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
   }
 
   void _loadCompanyDetails() async {
-    final dbHelper = DatabaseHelper(); // Create instance
+    final dbHelper = DatabaseHelper();
     Map<String, dynamic> companyDetails = await SharedPrefHelper.getCompanyDetails();
-    String? savedLogoBase64 = await dbHelper.getCompanyLogo(); // Retrieve logo
+    String? savedLogoBase64 = await dbHelper.getCompanyLogo();
 
     String? savedFilePath;
 
     if (savedLogoBase64 != null && savedLogoBase64.isNotEmpty) {
       Uint8List imageBytes = base64Decode(savedLogoBase64);
-      savedFilePath = await _saveToFile(imageBytes); // Await the file saving process
+      savedFilePath = await _saveToFile(imageBytes);
     }
+
+    // ✅ Fetch BankDetails & TandC from Database
+    final db = await DatabaseHelper.getDatabase();
+    final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
 
     setState(() {
       companyNameController.text = companyDetails["companyName"] ?? "";
@@ -107,6 +113,10 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
       addressController.text = companyDetails["companyAddress"] ?? "";
       contactController.text = companyDetails["companyContact"] ?? "";
 
+      // ✅ Load BankDetails & TandC from Database & Shared Preferences
+      bankDetailsController.text = companyDetails["BankDetails"] ?? companyData.firstOrNull?["BankDetails"] ?? "";
+      termsController.text = companyDetails["TandC"] ?? companyData.firstOrNull?["TandC"] ?? "";
+
       selectedState = states.contains(companyDetails["companyState"]) ? companyDetails["companyState"] : null;
       selectedCustomerState = states.contains(companyDetails["defaultCustomerState"]) ? companyDetails["defaultCustomerState"] : null;
 
@@ -114,13 +124,13 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
       isGstApplicable = gstValue is bool ? gstValue : gstValue.toString().toLowerCase() == "true";
       gstType = companyDetails["gstType"] ?? "same";
 
-      // Assign saved image only after it has been processed
       if (savedFilePath != null) {
         _pickedImage = XFile(savedFilePath);
       }
     });
 
-    print("isGstApplicable: $isGstApplicable, gstType: $gstType, selectedState: $selectedState");
+    print("BankDetails: ${bankDetailsController.text}"); // Debugging
+    print("TandC: ${termsController.text}"); // Debugging
   }
 
   Future<String> _saveToFile(Uint8List bytes) async {
@@ -153,11 +163,13 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
       "company_address": addressController.text,
       "company_state": selectedState,
       "company_contact": int.tryParse(contactController.text) ?? null,
-      "is_tax": isGstApplicable ? 1 : 0,  // ✅ Store as an integer (1 or 0)
+      "is_tax": isGstApplicable ? 1 : 0,
       "cgst": isGstApplicable ? double.tryParse(gstRateController.text) ?? 0.0 : 0.0,
       "sgst": isGstApplicable ? double.tryParse(gstRateController.text) ?? 0.0 : 0.0,
       "igst": isGstApplicable ? double.tryParse(gstRateController.text) ?? 0.0 : 0.0,
-      "default_state": selectedCustomerState
+      "default_state": selectedCustomerState,
+      "BankDetails": bankDetailsController.text.isNotEmpty ? bankDetailsController.text : null,
+      "TandC": termsController.text.isNotEmpty ? termsController.text : null
     };
 
     int? existingCompanyId = await dbHelper.getCompanyId();
@@ -167,6 +179,7 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
       await dbHelper.insertCompany(companyData);
     }
 
+    // ✅ Save in Shared Preferences
     await SharedPrefHelper.saveCompanyDetails(
       companyName: companyNameController.text,
       companyState: selectedState!,
@@ -176,21 +189,23 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
       companyContact: contactController.text,
       isGstApplicable: isGstApplicable,
       defaultCustomerState: selectedCustomerState ?? "",
-      gstType: gstType, // ✅ Save gstType
+      gstType: gstType,
+      bankDetails: bankDetailsController.text,
+      tandC: termsController.text,
     );
+
+    // ✅ Debugging log
+    print("Company details saved in SharedPreferences ✅");
 
     ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Company details updated successfully!"))
     );
 
-    if(temp){
+    if (temp) {
       Navigator.pop(context);
-    }else{
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => GstInvoice())); // Return true
+    } else {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => GstInvoice()));
     }
-
-
-    // Navigator.pop(context, true);
   }
 
   final List<String> states = [
@@ -253,7 +268,7 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
     );
   }
 
-  Widget buildTextField(String label, String hint, {TextEditingController? controller, TextInputType? keyboardType, bool isRequired = false, bool showError = false, bool istype = false}) {
+  Widget buildTextField(String label, String hint, {TextEditingController? controller, TextInputType? keyboardType, bool isRequired = false, bool showError = false, bool istype = false, int? maxLines}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -283,9 +298,10 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
           ),
           child: TextField(
             controller: controller,
-            enabled: istype ? false : true,
-            readOnly:  istype ? true : false,
-            keyboardType: keyboardType,
+            enabled: !istype,
+            readOnly: istype,
+            keyboardType: keyboardType ?? TextInputType.text,
+            maxLines: maxLines ?? 1,  // Allow multiple lines when needed
             decoration: InputDecoration(
               contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               border: InputBorder.none,
@@ -463,6 +479,15 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
                       child: Text("View Image"),
                     ),
                   ),
+                SizedBox(
+                  height: 10,
+                ),
+                buildTextField("Bank Details (Appear In Invoice Pdf)", "Bank Name\nAccount Number\nBank IFSC Code", controller: bankDetailsController, maxLines: 4),
+                SizedBox(
+                  height: 10,
+                ),
+                buildTextField("Terms & Conditions (Appear In Invoice Pdf)", "Enter Terms & Conditions", controller: termsController, maxLines: 4),
+
               ],
 
             ],

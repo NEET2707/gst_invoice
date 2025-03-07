@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:sqflite/sqflite.dart';
 import 'ADD/invoice.dart';
 import 'DATABASE/database_helper.dart';
+import 'DATABASE/sharedprefhelper.dart';
 import 'color.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -31,6 +32,9 @@ class _DetailState extends State<Detail> {
   Map<String, dynamic>? invoiceDetails;
   List<Map<String, dynamic>> items = [];
   List<Map<String, dynamic>> productList = [];
+  String? bankDetailsController ;
+  String? termsController ;
+
 
 
   @override
@@ -39,6 +43,7 @@ class _DetailState extends State<Detail> {
     fetchInvoiceDetails();
     fetchInvoicesByClientId(widget.clientid);
     fetchProducts(); // Fetch products
+    _loadCompanyDetails();
   }
 
   Future<List<Map<String, dynamic>>> fetchInvoicesByClientId(int clientId) async {
@@ -65,23 +70,32 @@ class _DetailState extends State<Detail> {
     final db = await DatabaseHelper.getDatabase();
 
     final List<Map<String, dynamic>> results = await db.rawQuery('''
-  SELECT 
-    invoice.*, 
-    client.client_company, 
-    client.client_contact, 
-    client.client_address, 
-    client.client_state, 
-    client.client_gstin,
-    (SELECT logo FROM companylogo LIMIT 1) AS company_logo  -- Fetch company logo
-  FROM invoice 
-  INNER JOIN client ON invoice.client_id = client.client_id 
-  WHERE invoice.invoice_id = ?
+    SELECT 
+      invoice.*, 
+      client.client_company, 
+      client.client_contact, 
+      client.client_address, 
+      client.client_state, 
+      client.client_gstin,
+      (SELECT logo FROM companylogo LIMIT 1) AS company_logo,
+      (SELECT BankDetails FROM company LIMIT 1) AS BankDetails,
+      (SELECT TandC FROM company LIMIT 1) AS TandC
+    FROM invoice 
+    INNER JOIN client ON invoice.client_id = client.client_id 
+    WHERE invoice.invoice_id = ?
   ''', [widget.invoiceId]);
 
+    print("Query Results: $results");  // Debugging
+
     if (results.isNotEmpty) {
+      print("BankDetails: ${results.first['BankDetails']}");  // Debugging
+      print("TandC: ${results.first['TandC']}");  // Debugging
+
       setState(() {
         invoiceDetails = results.first;
       });
+    } else {
+      print("No data found for invoice_id: ${widget.invoiceId}");
     }
   }
 
@@ -93,6 +107,7 @@ class _DetailState extends State<Detail> {
       product.product_name, 
       product.product_price, 
       product.product_gst, 
+      product.product_hsn, 
       invoice_line.qty,
       (invoice_line.price * invoice_line.qty) AS taxableAmount
     FROM invoice_line
@@ -104,6 +119,24 @@ class _DetailState extends State<Detail> {
       productList = results;
     });
   }
+
+  void _loadCompanyDetails() async {
+    final dbHelper = DatabaseHelper();
+    Map<String, dynamic> companyDetails = await SharedPrefHelper.getCompanyDetails();
+    String? savedLogoBase64 = await dbHelper.getCompanyLogo();
+
+    final db = await DatabaseHelper.getDatabase();
+    final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
+
+    setState(() {
+      bankDetailsController = companyDetails["BankDetails"] ?? companyData.firstOrNull?["BankDetails"] ?? "";
+      termsController = companyDetails["TandC"] ?? companyData.firstOrNull?["TandC"] ?? "";
+    });
+
+    print("BankDetails: ${bankDetailsController}"); // Debugging
+    print("TandC: ${termsController}"); // Debugging
+  }
+
 
   Future<pw.Document> generatePDF() async {
     final pdf = pw.Document();
@@ -120,6 +153,13 @@ class _DetailState extends State<Detail> {
     double totalSgst = (invoiceDetails?['total_sgst'] ?? 0.0).toDouble();
     double totalIgst = (invoiceDetails?['total_igst'] ?? 0.0).toDouble();
 
+    String bankDetails = invoiceDetails?['BankDetails'] ?? "N/A";
+    String termsAndConditions = invoiceDetails?['TandC'] ?? "N/A";
+    print(bankDetails);
+    print(termsAndConditions);
+    print(invoiceDetails);
+    print("999999999999999999999999999999999999999");
+
     Uint8List? imageBytes;
     if (invoiceDetails?['company_logo'] != null && invoiceDetails?['company_logo'].isNotEmpty) {
       imageBytes = base64Decode(invoiceDetails!['company_logo']);
@@ -133,14 +173,12 @@ class _DetailState extends State<Detail> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // Header Section
               pw.Container(
                 width: PdfPageFormat.a4.width - 32, // Page width minus margins
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    // Company Logo & Details + Bill To Section
                     pw.SizedBox(
                       width: PdfPageFormat.a4.width * 0.7, // Constraint width to 70% of the page
                       child: pw.Column(
@@ -182,10 +220,8 @@ class _DetailState extends State<Detail> {
                             ],
                           ),
 
-                          // Space before Bill To
                           pw.SizedBox(height: 10),
 
-                          // Bill To Section (placed inside the same column)
                           pw.Text(
                             "Bill To:${invoiceDetails?['client_company'] ?? 'N/A'}",
                             style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
@@ -198,11 +234,14 @@ class _DetailState extends State<Detail> {
                       ),
                     ),
 
-                    // PAID/UNPAID + TAX INVOICE + Issue/Due Dates
                     pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start, // Align everything left
                       children: [
-                        // Invoice Status (PAID/UNPAID)
+                        pw.Text(
+                          "TAX INVOICE:#${invoiceDetails?['invoice_id'] ?? 'N/A'}",
+                          style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold),
+                        ),
+                        pw.SizedBox(height: 10),
                         pw.Container(
                           padding: pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: pw.BoxDecoration(
@@ -215,19 +254,8 @@ class _DetailState extends State<Detail> {
                           ),
                         ),
 
-                        // Space
-                        pw.SizedBox(height: 10),
-
-                        // Invoice Title
-                        pw.Text(
-                          "TAX INVOICE:#${invoiceDetails?['invoice_id'] ?? 'N/A'}",
-                          style: pw.TextStyle(fontSize: 17, fontWeight: pw.FontWeight.bold),
-                        ),
-
-                        // Space
                         pw.SizedBox(height: 20),
 
-                        // Issue Date & Due Date
                         pw.Text(
                           "Issue Date: ${invoiceDetails?['invoice_date'] ?? 'N/A'}",
                           style: pw.TextStyle(fontSize: 12),
@@ -244,7 +272,6 @@ class _DetailState extends State<Detail> {
 
               pw.SizedBox(height: 20),
 
-              // Product Table
               pw.Column(
                 children: [
                   // Table divided into two parts
@@ -292,15 +319,15 @@ class _DetailState extends State<Detail> {
                         ),
                       ),
 
-                      // Right Part (Qty, Price, Amount)
                       pw.Expanded(
                         flex: 1,
                         child: pw.Table(
                           border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
                           columnWidths: {
-                            0: pw.FlexColumnWidth(2),
+                            0: pw.FlexColumnWidth(3),
                             1: pw.FlexColumnWidth(2),
                             2: pw.FlexColumnWidth(2),
+                            // 3: pw.FlexColumnWidth(2),
                           },
                           children: [
                             pw.TableRow(
@@ -308,15 +335,15 @@ class _DetailState extends State<Detail> {
                               children: [
                                 pw.Padding(
                                   padding: pw.EdgeInsets.all(8),
+                                  child: pw.Text("HSN", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                ),
+                                pw.Padding(
+                                  padding: pw.EdgeInsets.all(8),
                                   child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                                 ),
                                 pw.Padding(
                                   padding: pw.EdgeInsets.all(8),
                                   child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                                ),
-                                pw.Padding(
-                                  padding: pw.EdgeInsets.all(8),
-                                  child: pw.Text("Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                                 ),
                               ],
                             ),
@@ -326,15 +353,15 @@ class _DetailState extends State<Detail> {
                                 children: [
                                   pw.Padding(
                                     padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${product['qty']}"),
+                                    child: pw.Text("${product['product_hsn']}"),
+                                  ),
+                                  pw.Padding(
+                                    padding: pw.EdgeInsets.all(8),
+                                    child: pw.Text("${product['qty'] ?? '0'}"), // Ensure a default value if null
                                   ),
                                   pw.Padding(
                                     padding: pw.EdgeInsets.all(8),
                                     child: pw.Text("${product['product_price']}"),
-                                  ),
-                                  pw.Padding(
-                                    padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${product['taxableAmount']}"),
                                   ),
                                 ],
                               );
@@ -355,17 +382,15 @@ class _DetailState extends State<Detail> {
                       pw.Expanded(
                         flex: 1,
                         child: pw.Container(
+                          height: 150,
                           decoration: pw.BoxDecoration(border: pw.Border.all(width: 1, color: PdfColors.grey)),
                           padding: pw.EdgeInsets.all(8),
                           child: pw.Column(
                             crossAxisAlignment: pw.CrossAxisAlignment.start,
                             children: [
-                              pw.Text("Terms & Conditions", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                              pw.Bullet(text: "1. Goods once sold cannot be returned."),
-                              pw.Bullet(text: "2. Payment due within 30 days."),
-                              pw.Bullet(text: "3. Late payments will attract interest charges."),
-                              pw.Bullet(text: "4. Warranty as per manufacturer’s policy."),
-                              pw.Bullet(text: "5. Subject to local jurisdiction."),
+                              pw.Text("Bank Details", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                              pw.SizedBox(height: 5),
+                              pw.Text(bankDetailsController.toString(), style: pw.TextStyle(fontSize: 12)),
                             ],
                           ),
                         ),
@@ -412,6 +437,28 @@ class _DetailState extends State<Detail> {
                     ],
                   ),
 
+                  pw.SizedBox(height: 10),
+
+                  // Bank Details Section
+                  pw.Container(
+                    width: double.infinity,
+                    padding: pw.EdgeInsets.all(8),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColors.grey, width: 1),
+                      color: PdfColors.grey100,
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+
+
+
+                        pw.Text("Terms & Conditions", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold,)),
+                        pw.SizedBox(height: 5),
+                        pw.Text(termsController.toString(), style: pw.TextStyle(fontSize: 12)),
+                      ],
+                    ),
+                  ),
 
                   pw.SizedBox(height: 30),
 
@@ -432,19 +479,6 @@ class _DetailState extends State<Detail> {
                   ),
                 ],
               ),
-
-
-              // pw.SizedBox(height: 20),
-              //
-              // // Footer Section
-              // pw.Text(
-              //   "Terms and Conditions:",
-              //   style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-              // ),
-              // pw.Text(
-              //   "1. Payment is due within 30 days of invoice date.\n2. Late payments are subject to a fee of 2% per month.",
-              //   style: pw.TextStyle(fontSize: 10),
-              // ),
             ],
           );
         },
@@ -694,21 +728,19 @@ class _DetailState extends State<Detail> {
               padding: const EdgeInsets.all(12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start, // Aligns items to the top
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Product Name (Expands to take available space)
                   Expanded(
                     flex: 2, // Adjust as needed
                     child: Text(
                       "${product['product_name']}",
-                      style: TextStyle(fontWeight: FontWeight.normal,fontSize: 20),
+                      style: TextStyle(fontWeight: FontWeight.w500,fontSize: 18),
                       overflow: TextOverflow.ellipsis, // Prevents overflow
                       softWrap: false, // Keeps text in one line
                     ),
                   ),
-                  // Product Details (Price, Quantity, Taxable Amount)
                   Expanded(
-                    flex: 1, // Adjust as needed
+                    flex: 1,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end, // Align text to the right
                       children: [
@@ -751,7 +783,7 @@ class _DetailState extends State<Detail> {
           children: [
             Text(
               "GST & Total",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
             Divider(),
             _buildRow(
@@ -811,7 +843,7 @@ class _DetailState extends State<Detail> {
           Expanded(
             child: Text(
               title,
-              style: TextStyle(fontSize: 16, fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
+              style: TextStyle(fontSize: 15, fontWeight: isBold ? FontWeight.w500 : FontWeight.normal),
             ),
           ),
           Expanded(
@@ -851,7 +883,7 @@ class _DetailState extends State<Detail> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(fontWeight: FontWeight.w500)),
           Text(value ?? 'N/A'), // Handle null
         ],
       ),

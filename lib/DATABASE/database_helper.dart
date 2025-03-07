@@ -1,5 +1,9 @@
 import 'dart:io';
-import 'package:intl/intl.dart';
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:saf_util/saf_util.dart';
+
 import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
@@ -23,13 +27,19 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 5, // Increment database version from 4 to 5
       onCreate: (db, version) async {
         await _createTables(db);
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 3) {
           await db.execute("ALTER TABLE invoice ADD COLUMN is_paid INTEGER DEFAULT 0");
+        }
+        if (oldVersion < 4) {
+          await db.execute("ALTER TABLE company ADD COLUMN BankDetails TEXT");
+        }
+        if (oldVersion < 5) { // Version 5 adds TandC column
+          await db.execute("ALTER TABLE company ADD COLUMN TandC TEXT");
         }
       },
     );
@@ -60,20 +70,22 @@ class DatabaseHelper {
     ''');
 
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS company (
-        company_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        company_name TEXT,
-        company_gstin TEXT,
-        company_address TEXT,
-        company_state TEXT,
-        company_contact INTEGER,
-        is_tax INTEGER,
-        cgst FLOAT,
-        sgst FLOAT,
-        igst FLOAT,
-        default_state TEXT
-      )
-    ''');
+  CREATE TABLE IF NOT EXISTS company (
+    company_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    company_name TEXT,
+    company_gstin TEXT,
+    company_address TEXT,
+    company_state TEXT,
+    company_contact INTEGER,
+    is_tax INTEGER,
+    cgst FLOAT,
+    sgst FLOAT,
+    igst FLOAT,
+    default_state TEXT,
+    BankDetails TEXT,
+    TandC TEXT
+  )
+''');
 
     await db.execute('''
   CREATE TABLE IF NOT EXISTS invoice (
@@ -137,11 +149,23 @@ class DatabaseHelper {
 
   Future<int> insertCompany(Map<String, dynamic> companyData) async {
     final db = await getDatabase();
+
+    companyData["BankDetails"] = companyData["BankDetails"]?.isNotEmpty == true ? companyData["BankDetails"] : null;
+    companyData["TandC"] = companyData["TandC"]?.isNotEmpty == true ? companyData["TandC"] : null;
+    print(companyData);
+    print("44444444444444444444444444444444444");
+
     print("Inserting company data: $companyData");
-    int result = await db.insert("company", companyData);
+    int result = await db.insert("company", companyData, conflictAlgorithm: ConflictAlgorithm.replace);
     print("Insert result: $result");
     return result;
   }
+
+  Future<int> updateCompany(int id, Map<String, dynamic> companyData) async {
+    final db = await getDatabase();
+    return await db.update("company", companyData, where: "company_id = ?", whereArgs: [id]);
+  }
+
 
   Future<int> saveClient(Map<String, dynamic> clientData) async {
     final db = await getDatabase();
@@ -189,10 +213,7 @@ class DatabaseHelper {
     return null;
   }
 
-  Future<int> updateCompany(int id, Map<String, dynamic> companyData) async {
-    final db = await getDatabase();
-    return await db.update("company", companyData, where: "id = ?", whereArgs: [id]);
-  }
+
 
   static Future<int> saveInvoiceLine(Map<String, dynamic> data) async {
     final db = await getDatabase();
@@ -270,8 +291,133 @@ class DatabaseHelper {
   }
 
 
+  /// **Request Storage Permission (for Android 13 and below)**
+  static Future<bool> requestStoragePermission() async {
+    if (await Permission.storage.request().isGranted) {
+      return true;
+    }
+    if (await Permission.manageExternalStorage.request().isGranted) {
+      return true;
+    }
 
+    print("❌ Storage permission denied!");
+    return false;
+  }
+
+  static Future<bool> backupDatabase() async {
+    if (!await requestStoragePermission()) {
+      print("Storage permission denied!");
+      return false;
+    }
+    final _saf = SafUtil();
+    try {
+      String? pickedDirectory = await _saf.openDirectory();
+      if (pickedDirectory == null) {
+        print("❌ No directory selected!");
+        return false;
+      }
+
+      String filePath = "$pickedDirectory/backup.csv";
+
+      bool success = await exportToCSV(filePath);
+      return success;
+    } catch (e) {
+      print("❌ Error during backup: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> restoreDatabase() async {
+    if (!await requestStoragePermission()) {
+      print("Storage permission denied!");
+      return false;
+    }
+
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+      );
+
+      if (result == null) {
+        print("❌ No file selected!");
+        return false;
+      }
+
+      String filePath = result.files.single.path!;
+      bool success = await importFromCSV(filePath);
+      return success;
+    } catch (e) {
+      print("❌ Error during restore: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> exportToCSV(String filePath) async {
+    try {
+      Database db = await getDatabase();
+      List<String> tables = ['company', 'product', 'invoice'];
+
+      List<List<String>> csvData = [['Table', 'Data']];
+      for (String table in tables) {
+        List<Map<String, dynamic>> rows = await db.query(table);
+        print("roesssss : $rows");
+        if (rows.isNotEmpty) {
+          csvData.add([table]); // Table name
+          csvData.add(rows.first.keys.toList()); // Column headers
+          for (var row in rows) {
+            csvData.add(row.values.map((value) => value.toString()).toList());
+          }
+        }
+      }
+
+      String csv = const ListToCsvConverter().convert(csvData);
+      print("csvvvvv -->n $csv");
+      File file = File(filePath);
+      print("fileeeeeeeee --> $file");
+      await file.writeAsString(csv);
+
+      print("✅ Exported to: $filePath");
+      return true;
+    } catch (e) {
+      print("❌ Error during export: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> importFromCSV(String filePath) async {
+    try {
+      File file = File(filePath);
+      String fileContent = await file.readAsString();
+      List<List<dynamic>> csvData = const CsvToListConverter().convert(fileContent);
+
+      Database db = await getDatabase();
+      String? currentTable;
+
+      for (List<dynamic> row in csvData) {
+        if (row.length == 1) {
+          currentTable = row[0].toString();
+        } else if (currentTable != null) {
+          Map<String, dynamic> rowData = {};
+          List<String> columns = csvData[csvData.indexOf(row) - 1].map((e) => e.toString()).toList();
+
+          for (int i = 0; i < columns.length; i++) {
+            rowData[columns[i]] = row[i];
+          }
+
+          await db.insert(currentTable, rowData, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+      }
+
+      print("✅ Data imported successfully!");
+      return true;
+    } catch (e) {
+      print("❌ Error during import: $e");
+      return false;
+    }
+  }
 }
+
 
 Future<int> saveInvoice(Map<String, dynamic> invoiceData) async {
   final db = await DatabaseHelper.getDatabase();

@@ -1,8 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart';
-import 'package:sqflite/sqflite.dart';
+import '../DATABASE/database_helper.dart';
 
 class BackupPage extends StatefulWidget {
   @override
@@ -10,89 +7,43 @@ class BackupPage extends StatefulWidget {
 }
 
 class _BackupPageState extends State<BackupPage> {
-  String? backupPath;
+  String statusMessage = "Ready";
 
-  @override
-  void initState() {
-    super.initState();
-    _getBackupPath();
-  }
-
-  Future<void> _getBackupPath() async {
-    Directory backupDir = await getApplicationDocumentsDirectory();
+  void backupDatabase() async {
+    bool success = await DatabaseHelper.backupDatabase();
     setState(() {
-      backupPath = join(backupDir.path, "backup_company.db");
+      statusMessage = success ? "✅ Backup Successful!" : "❌ Backup Failed!";
     });
   }
 
-  // Backup Database Function
-  Future<void> _backupDatabase() async {
-    try {
-      String dbPath = join(await getDatabasesPath(), "company.db");
-
-      if (!await File(dbPath).exists()) {
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          SnackBar(content: Text("Database not found!")),
-        );
-        return;
-      }
-
-      await File(dbPath).copy(backupPath!);
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        SnackBar(content: Text("Backup successful! File saved to $backupPath")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        SnackBar(content: Text("Backup failed: $e")),
-      );
-      print(backupPath);
-      print("666666666666666666666666666");
-    }
-  }
-
-  // Restore Database Function
-  Future<void> _restoreDatabase() async {
-    try {
-      String dbPath = join(await getDatabasesPath(), "company.db");
-
-      if (!await File(backupPath!).exists()) {
-        ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-          SnackBar(content: Text("Backup file not found!")),
-        );
-        return;
-      }
-
-      await File(backupPath!).copy(dbPath);
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        SnackBar(content: Text("Database restored successfully!")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context as BuildContext).showSnackBar(
-        SnackBar(content: Text("Restore failed: $e")),
-      );
-    }
+  void restoreDatabase() async {
+    bool success = await DatabaseHelper.restoreDatabase();
+    setState(() {
+      statusMessage = success ? "✅ Restore Successful!" : "❌ Restore Failed!";
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Backup & Restore")),
-      body: Padding(
-        padding: const EdgeInsets.all(20.0),
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton.icon(
-              onPressed: _backupDatabase,
+              onPressed: backupDatabase,
               icon: Icon(Icons.backup),
-              label: Text("Backup Database"),
+              label: Text("Backup Database (CSV)"),
             ),
             SizedBox(height: 20),
             ElevatedButton.icon(
-              onPressed: _restoreDatabase,
+              onPressed: restoreDatabase,
               icon: Icon(Icons.restore),
-              label: Text("Restore Database"),
+              label: Text("Restore Database (CSV)"),
             ),
+            SizedBox(height: 20),
+            Text(statusMessage, style: TextStyle(fontSize: 16)),
           ],
         ),
       ),
