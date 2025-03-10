@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gst_invoice/color.dart';
 import '../DATABASE/database_helper.dart';
 
 class BackupPage extends StatefulWidget {
@@ -7,43 +8,73 @@ class BackupPage extends StatefulWidget {
 }
 
 class _BackupPageState extends State<BackupPage> {
-  String statusMessage = "Ready";
+  String storageBackupStatus = "No Backup yet";
 
   void backupDatabase() async {
     bool success = await DatabaseHelper.backupDatabase();
     setState(() {
-      statusMessage = success ? "✅ Backup Successful!" : "❌ Backup Failed!";
+      storageBackupStatus = success ? "Last Backup: Successful" : "Last Backup: Failed";
     });
   }
 
   void restoreDatabase() async {
     bool success = await DatabaseHelper.restoreDatabase();
     setState(() {
-      statusMessage = success ? "✅ Restore Successful!" : "❌ Restore Failed!";
+      storageBackupStatus = success ? "Restore Successful!" : "Restore Failed!";
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("Backup & Restore")),
-      body: Center(
+      appBar:
+      AppBar(
+          backgroundColor: themecolor,
+          title: Text("Backup And Restore")),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            ElevatedButton.icon(
-              onPressed: backupDatabase,
-              icon: Icon(Icons.backup),
-              label: Text("Backup Database (CSV)"),
+            Card(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Storage Backup & Restore", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 8),
+                    Text("Back up your Accounts and GST Invoice to your Internal storage. You can restore it from Backup file."),
+                    SizedBox(height: 8),
+                    Text("$storageBackupStatus", style: TextStyle(fontWeight: FontWeight.bold)),
+                    SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: backupDatabase,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: themecolor, // Set custom background color
+                        ),
+                        child: Text("Backup"),
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: restoreDatabase,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: themecolor, // Set custom background color
+                        ),
+                        child: Text("Restore"),
+                      ),
+                    ),
+
+                  ],
+                ),
+              ),
             ),
-            SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: restoreDatabase,
-              icon: Icon(Icons.restore),
-              label: Text("Restore Database (CSV)"),
-            ),
-            SizedBox(height: 20),
-            Text(statusMessage, style: TextStyle(fontSize: 16)),
           ],
         ),
       ),

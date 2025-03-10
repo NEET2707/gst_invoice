@@ -130,7 +130,8 @@ class _GstInvoiceState extends State<GstInvoice>{
             ? Center(child: CircularProgressIndicator())
             : buildInvoiceList(),
       )
-          : _pages[_selectedIndex],
+          : RefreshIndicator(onRefresh: () async { loadInvoices(); },
+          child: _pages[_selectedIndex]),
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
         backgroundColor: themecolor,
@@ -249,7 +250,7 @@ class _GstInvoiceState extends State<GstInvoice>{
                             Row(
                               children: [
                                 Text(
-                        companyName,
+                                  invoice['client_company'] ?? "No Client",
                                   style: TextStyle(
                                       fontWeight: FontWeight.w500,
                                       fontSize: 18),

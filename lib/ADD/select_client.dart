@@ -54,7 +54,7 @@ class _SelectClientState extends State<SelectClient> {
 
   Future<void> deleteClient(int clientId) async {
     final db = await DatabaseHelper.getDatabase();
-    await db.delete('client', where: 'id = ?', whereArgs: [clientId]);
+    await db.delete('client', where: 'client_id = ?', whereArgs: [clientId]);
     fetchClients(); // Refresh list after deletion
   }
 
@@ -70,15 +70,17 @@ class _SelectClientState extends State<SelectClient> {
         children: [
           // Search bar
           Padding(
-            padding: const EdgeInsets.only(top: 10,bottom: 6, left: 5, right: 5),
+            padding: const EdgeInsets.only(top: 5, bottom: 4, left: 5, right: 5),
             child: SizedBox(
-              height: 50,
+              height: 40, // Reduced height
               child: TextField(
                 controller: searchController,
                 onChanged: filterClients,
                 decoration: InputDecoration(
                   hintText: "Search",
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search, size: 20), // Optional: smaller icon
+                  isDense: true, // Reduces height
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8), // Adjusts vertical padding
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10.0),
                   ),
@@ -96,9 +98,10 @@ class _SelectClientState extends State<SelectClient> {
                 : Card(
               child: ListView.separated( // ✅ Use ListView.separated
                 itemCount: filteredClients.length,
-                separatorBuilder: (context, index) => Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Divider(color: Colors.grey.shade300, thickness: 1),
+                separatorBuilder: (context, index) => Divider(
+                  color: Colors.grey.shade300,
+                  thickness: 0.5,
+                  height: 0,
                 ),
                 itemBuilder: (context, index) {
                   final client = filteredClients[index];
@@ -122,94 +125,117 @@ class _SelectClientState extends State<SelectClient> {
                       print("================");
                       print(selectedClient);
                     },
-                  
+
                     child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                      minLeadingWidth: 0,
                       leading: CircleAvatar(
+                        radius: 16,
                         backgroundColor: themecolor,
                         child: Text(
                           client['client_company'][0].toUpperCase(), // Show first letter
-                          style: TextStyle(color: Colors.white),
+                          style: const TextStyle(color: Colors.white, fontSize: 12),
                         ),
                       ),
-                      title: Text(
-                        client['client_company'],
-                        style: const TextStyle(fontWeight: FontWeight.w500,fontSize: 18),
-                      ),
-                      subtitle: Column(
+                      title: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("State: ${client['client_state']}"),
-                          Text("Contact: ${client['client_contact']}"),
+                          // First row: Company + Contact
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  client['client_company'],
+                                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                client['client_contact'].toString(),
+                                style: const TextStyle(color: Colors.black54, fontSize: 11),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 2),
+                          // Second row: State + GSTIN
+                          Row(
+                            children: [
+                              Text("${client['client_state']} ", style: TextStyle(fontSize: 11),),
+                              Text("/ ${client['client_gstin'].toString()}", style: TextStyle(fontSize: 11)),
+                            ],
+                          ),
                         ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Edit Button
-                      PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert, color: Colors.black54),
-                      onSelected: (value) async {
-                        if (value == 'edit') {
-                          bool? result = await Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => AddClient(clientData: client),
-                            ),
-                          );
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert, color: Colors.black54),
+                            onSelected: (value) async {
+                              if (value == 'edit') {
+                                bool? result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AddClient(clientData: client),
+                                  ),
+                                );
 
-                          if (result == true) {
-                            setState(() {}); // Refresh UI after editing
-                          }
-                        } else if (value == 'delete') {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text("Delete Client"),
-                              content: const Text("Are you sure you want to delete this client?"),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text("Cancel"),
+                                if (result == true) {
+                                  setState(() {}); // Refresh UI after editing
+                                }
+                              } else if (value == 'delete') {
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text("Delete Client"),
+                                    content: const Text("Are you sure you want to delete this client?"),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text("Cancel"),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          deleteClient(client['client_id']);
+                                          Navigator.pop(context);
+                                          setState(() {}); // Refresh UI after deletion
+                                        },
+                                        child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit, color: Colors.blue),
+                                    SizedBox(width: 8),
+                                    Text("Edit"),
+                                  ],
                                 ),
-                                TextButton(
-                                  onPressed: () {
-                                    deleteClient(client['id']);
-                                    Navigator.pop(context);
-                                    setState(() {}); // Refresh UI after deletion
-                                  },
-                                  child: const Text("Delete", style: TextStyle(color: Colors.red)),
+                              ),
+                              PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text("Delete"),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
-                        }
-                      },
-                      itemBuilder: (context) => [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Row(
-                            children: [
-                              Icon(Icons.edit, color: Colors.blue),
-                              SizedBox(width: 8),
-                              Text("Edit"),
+                              ),
                             ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete, color: Colors.red),
-                              SizedBox(width: 8),
-                              Text("Delete"),
-                            ],
-                          ),
-                        ),
-                      ],
-                    )
-                    ],
+                          )
+                        ],
                       ),
                     ),
+
                   );
                                 },
                               ),

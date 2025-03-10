@@ -635,17 +635,39 @@ class _DetailState extends State<Detail> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildStatusToggle(),
-            _buildBuyerDetails(),
-            _buildInvoiceDetails(),
-            _buildProductsList(),
-            _buildGST(),
-          ],
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Card(
+          elevation: 2,
+          child: SingleChildScrollView(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStatusToggle(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                ),
+                _buildBuyerDetails(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                ),
+                _buildInvoiceDetails(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                ),
+                _buildProductsList(),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 50),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                ),
+                _buildGST(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -682,20 +704,37 @@ class _DetailState extends State<Detail> {
   }
 
   Widget _buildBuyerDetails() {
+    String clientCompany = invoiceDetails?['client_company']?.toString() ?? "N/A";
+    String firstLetter = clientCompany.isNotEmpty ? clientCompany[0].toUpperCase() : "?";
+
     return _buildSection(
       title: "Buyer Details",
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildIconText(Icons.business, invoiceDetails?['client_company']?.toString() ?? 'N/A'),
-          _buildIconText(Icons.location_on, invoiceDetails?['client_address']?.toString() ?? 'N/A'),
-          _buildIconText(Icons.confirmation_number, "GST: ${invoiceDetails?['client_gstin'] ?? 'N/A'}"),
-          _buildIconText(Icons.map, invoiceDetails?['client_state']?.toString() ?? 'N/A'),
-          _buildIconText(Icons.phone, invoiceDetails?['client_contact']?.toString() ?? 'N/A'),
-        ],
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: themecolor, // Ensure `themecolor` is defined
+          child: Text(
+            firstLetter,
+            style: const TextStyle(color: Colors.white),
+          ),
+        ),
+        title: Text(
+          clientCompany,
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (invoiceDetails?['client_state']?.toString().isNotEmpty ?? false)
+              Text("State: ${invoiceDetails!['client_state']}"),
+            if (invoiceDetails?['client_contact']?.toString().isNotEmpty ?? false)
+              Text("Contact: ${invoiceDetails!['client_contact']}"),
+          ],
+        ),
       ),
     );
   }
+
+
 
   Widget _buildInvoiceDetails() {
     return _buildSection(
@@ -720,40 +759,35 @@ class _DetailState extends State<Detail> {
           int qty = int.tryParse(product['qty'].toString()) ?? 1;
           double taxableAmount = product['taxableAmount'] ?? 0.0;
 
-          return Card(
-            elevation: 3,
-            margin: EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2, // Adjust as needed
-                    child: Text(
-                      "${product['product_name']}",
-                      style: TextStyle(fontWeight: FontWeight.w500,fontSize: 18),
-                      overflow: TextOverflow.ellipsis, // Prevents overflow
-                      softWrap: false, // Keeps text in one line
-                    ),
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 2, // Adjust as needed
+                  child: Text(
+                    "${product['product_name']}",
+                    style: TextStyle(fontWeight: FontWeight.w500,fontSize: 18),
+                    overflow: TextOverflow.ellipsis, // Prevents overflow
+                    softWrap: false, // Keeps text in one line
                   ),
-                  Expanded(
-                    flex: 1,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end, // Align text to the right
-                      children: [
-                        Text("${price.toStringAsFixed(2)} X $qty"),
-                        Text(
-                          "${taxableAmount.toStringAsFixed(2)}",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
+                ),
+                Expanded(
+                  flex: 1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end, // Align text to the right
+                    children: [
+                      Text("${price.toStringAsFixed(2)} X $qty"),
+                      Text(
+                        "${taxableAmount.toStringAsFixed(2)}",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           );
         }).toList(),
@@ -772,63 +806,58 @@ class _DetailState extends State<Detail> {
     double totalIgst = (invoiceDetails?['total_igst'] ?? 0.0).toDouble();
     double discountAmount = (taxableAmount * discount) / 100;
 
-    return Card(
-      elevation: 3,
-      margin: EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "GST & Total",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-            ),
-            Divider(),
+    return Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "GST & Total",
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+          ),
+          Divider(),
+          _buildRow(
+            title: "Taxable Amount",
+            value: "₹${(taxableAmount ).toStringAsFixed(2)}",
+            isBold: true,
+            color: Colors.green,
+          ),
+          _buildRow(
+            title: "Discount (${discount.toStringAsFixed(2)}%)",
+            value: "₹${(taxableAmount * discount / 100).toStringAsFixed(2)}",
+          ),
+          if (isSameState) ...[
             _buildRow(
-              title: "Taxable Amount",
-              value: "₹${(taxableAmount ).toStringAsFixed(2)}",
-              isBold: true,
-              color: Colors.green,
+              title: "CGST",
+              value: "₹${(invoiceDetails?['total_cgst'] ?? 0.0).toStringAsFixed(2)}",
             ),
             _buildRow(
-              title: "Discount (${discount.toStringAsFixed(2)}%)",
-              value: "₹${(taxableAmount * discount / 100).toStringAsFixed(2)}",
+              title: "SGST",
+              value: "₹${(invoiceDetails?['total_sgst'] ?? 0.0).toStringAsFixed(2)}",
             ),
-            if (isSameState) ...[
-              _buildRow(
-                title: "CGST",
-                value: "₹${(invoiceDetails?['total_cgst'] ?? 0.0).toStringAsFixed(2)}",
-              ),
-              _buildRow(
-                title: "SGST",
-                value: "₹${(invoiceDetails?['total_sgst'] ?? 0.0).toStringAsFixed(2)}",
-              ),
-            ] else
-              _buildRow(
-                title: "IGST",
-                value: "₹${(invoiceDetails?['total_igst'] ?? 0.0).toStringAsFixed(2)}",
-              ),
-
+          ] else
             _buildRow(
-              title: "Total Amount",
-              value: "₹${(taxableAmount + (isSameState
-                  ? (totalCcgst + totalSgst)
-                  : totalIgst)).toStringAsFixed(2)}",
+              title: "IGST",
+              value: "₹${(invoiceDetails?['total_igst'] ?? 0.0).toStringAsFixed(2)}",
             ),
 
-            Divider(),
-            _buildRow(
-              title: "Final Amount",
-              value: "₹${(taxableAmount + (isSameState
-                  ? (totalCcgst + totalSgst)
-                  : totalIgst) - discountAmount).toStringAsFixed(2)}",
-              isBold: true,
-              color: Colors.blue,
-            ),
-          ],
-        ),
+          _buildRow(
+            title: "Total Amount",
+            value: "₹${(taxableAmount + (isSameState
+                ? (totalCcgst + totalSgst)
+                : totalIgst)).toStringAsFixed(2)}",
+          ),
+
+          Divider(),
+          _buildRow(
+            title: "Final Amount",
+            value: "₹${(taxableAmount + (isSameState
+                ? (totalCcgst + totalSgst)
+                : totalIgst) - discountAmount).toStringAsFixed(2)}",
+            isBold: true,
+            color: Colors.blue,
+          ),
+        ],
       ),
     );
   }
@@ -860,17 +889,17 @@ class _DetailState extends State<Detail> {
 
   Widget _buildSection({required String title, required Widget child}) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(bottom: 1.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: double.infinity,
-            padding: EdgeInsets.all(8.0),
-            color: themecolor,
-            child: Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+            padding: EdgeInsets.all(1.0),
+            color: Colors.white,
+            child: Text(title, style: TextStyle(color: themecolor, fontWeight: FontWeight.w600,fontSize: 20)),
           ),
-          SizedBox(height: 8),
+          SizedBox(height: 4),
           child,
         ],
       ),
@@ -890,16 +919,4 @@ class _DetailState extends State<Detail> {
     );
   }
 
-  Widget _buildIconText(IconData icon, String? text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.black54),
-          SizedBox(width: 8),
-          Text(text ?? 'N/A', style: TextStyle(fontSize: 15)), // Handle null
-        ],
-      ),
-    );
-  }
 }

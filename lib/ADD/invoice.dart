@@ -3,9 +3,13 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gst_invoice/ADD/select_client.dart';
 import 'package:gst_invoice/ADD/select_product.dart';
 import 'package:gst_invoice/DATABASE/database_helper.dart';
+import 'package:gst_invoice/color.dart';
 import 'package:gst_invoice/gst_invoice.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../color.dart';
+import '../organization_detail.dart';
 
 class Invoice extends StatefulWidget {
   Map<String, dynamic>? selectedClient;
@@ -255,7 +259,7 @@ class _InvoiceState extends State<Invoice> {
 
   double _getTotalPrice() {
     return selectedProducts.fold(0, (sum, product) {
-      int qty = product['qty'] ?? 1;
+      int qty = int.tryParse(product['qty'].toString()) ?? 1;
       double price = product['product_price'];
       return sum + (price * qty);
     });
@@ -263,7 +267,7 @@ class _InvoiceState extends State<Invoice> {
 
   double _getTotalGST() {
     return selectedProducts.fold(0, (sum, product) {
-      int qty = product['qty'] ?? 1;
+      int qty = int.tryParse(product['qty'].toString()) ?? 1;
       double price = product['product_price'];
       double gstRate = product['product_gst'];
       double gstAmount = ((price * qty) * gstRate) / 100;
@@ -282,8 +286,6 @@ class _InvoiceState extends State<Invoice> {
     double total = _getTotalPrice() + _getTotalGST();
     return total - ((_getTotalPrice() * discountPercentage) / 100);
   }
-
-
 
   void _applyDiscount(BuildContext context) {
     showDialog(
@@ -328,11 +330,11 @@ class _InvoiceState extends State<Invoice> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Update Quantity"),
+          title: const Text("Update Quantity"),
           content: TextField(
             controller: qtyController,
             keyboardType: TextInputType.number,
-            decoration: InputDecoration(
+            decoration: const InputDecoration(
               labelText: "Enter new qty",
               border: OutlineInputBorder(),
             ),
@@ -342,11 +344,16 @@ class _InvoiceState extends State<Invoice> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: Text("Cancel"),
+              child: const Text("Cancel"),
             ),
             ElevatedButton(
               onPressed: () async {
                 int updatedQty = int.tryParse(qtyController.text) ?? 1;
+
+                setState(() {
+                  selectedProducts[index]['qty'] = updatedQty;
+                });
+
                 int productId = selectedProducts[index]['product_id'];
                 int invoiceId = widget.invoiceId ?? 0;
 
@@ -361,15 +368,12 @@ class _InvoiceState extends State<Invoice> {
 
                 print("Database Updated: Product $productId, New Qty: $updatedQty");
 
-                // ✅ Fetch Updated Data After Saving
-                await _loadInvoiceDetails(invoiceId); // Refresh the invoice
-
-                // ✅ Update UI
+                // ✅ No need to reload all products, just recalculate totals
                 setState(() {});
 
                 Navigator.pop(context); // Close the dialog
               },
-              child: Text("Save"),
+              child: const Text("Save"),
             ),
           ],
         );
@@ -377,20 +381,29 @@ class _InvoiceState extends State<Invoice> {
     );
   }
 
-
   Widget _buildSummaryRow(String label, String value, {bool isBold = false, bool isHighlighted = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(fontSize: 16)),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-              color: isHighlighted ? Colors.green : Colors.black,
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 16),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+                color: isHighlighted ? Colors.green : Colors.black,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -398,6 +411,16 @@ class _InvoiceState extends State<Invoice> {
     );
   }
 
+  Future<void> _onOrganizationDetailTap() async {
+    bool? result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => OrganizationDetail(temp: true,)),
+    );
+    if (result == true) {
+      _loadCompanyDetails();  // ✅ Reload data when coming back
+    }
+
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -425,213 +448,217 @@ class _InvoiceState extends State<Invoice> {
           )
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            _buildSection(
-              title: "Buyer Details",
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: SingleChildScrollView(
+            child: Column(
+              children: [
+                _buildSection(
+                  title: "Buyer Details",
 
-              isBuyerSection: true,  // Set to true for the Buyer Details section
-              child: GestureDetector(
-                onTap: () async {
-                    final client = await Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
-                    );
-                    if (client != null) {
-                      setState(() {
-                        selectedClient = client;
-                      });
-                    }
-                },
-                child: _buildBuyerDetails(),
-              ),
-            ),
-
-
-            _buildSection(
-              title: "Invoice Details",
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildDateField("Invoice Date", invoiceDateController),
-                  _buildDateField("Due Date", dueDateController),
-                ],
-              ),
-            ),
-
-            _buildSection(
-              title: "Items Details",
-              child: Column(
-                children: [
-                  // "Clear All Items" Button
-                  if (selectedProducts.isNotEmpty)
-                    GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          selectedProducts.clear();
-                        });
-                      },
-                      child: const Text(
-                        "Clear all Items",
-                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-
-
-                  ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: selectedProducts.length,
-                    itemBuilder: (context, index) {
-                      var product = selectedProducts[index];
-
-                      // Get product details
-                      double price = product['product_price'];
-                      int qty = product['qty'] ?? 1;
-                      double gstRate = product['product_gst'];
-
-                      // Calculate new total price based on quantity
-                      double totalPrice = price * qty;
-                      double gstAmount = totalPrice * gstRate / 100;
-
-                      // Determine if IGST or CGST & SGST should be applied
-                      bool isSameState = selectedClient != null &&
-                          selectedClient!['client_state'] == companyState;
-
-                      return Card(
-                        margin: const EdgeInsets.symmetric(vertical: 5),
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        child: ListTile(
-                          title: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 110),
-                            child: Text(
-                              product['product_name'],
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 25),
-                            ),
-                          ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  // Remove Product Button
-                                  IconButton(
-                                    icon: const Icon(Icons.remove_circle, color: Colors.red),
-                                    onPressed: () {
-                                      setState(() {
-                                        selectedProducts.removeAt(index);
-                                      });
-                                    },
-                                  ),
-                                  // Edit Product Button
-                                  IconButton(
-                                    icon: const Icon(Icons.edit, color: Colors.blue),
-                                    onPressed: () {
-                                      _editProduct(context, index);
-                                    },
-                                  ),
-                                  // Quantity & Price
-                                  Text(
-                                    "$qty X ₹${price.toStringAsFixed(2)}",
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                              // GST Details
-                              if (isSameState) ...[
-                                Text("CGST: ₹${(gstAmount / 2).toStringAsFixed(2)} (${(gstRate / 2).toStringAsFixed(2)}%)"),
-                                Text("SGST: ₹${(gstAmount / 2).toStringAsFixed(2)} (${(gstRate / 2).toStringAsFixed(2)}%)"),
-                              ] else ...[
-                                Text("IGST: ₹${gstAmount.toStringAsFixed(2)} (${gstRate.toStringAsFixed(2)}%)"),
-                              ],
-                              // Updated Total Price
-                              Text(
-                                "Total: ₹${(totalPrice + gstAmount).toStringAsFixed(2)}",
-                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
+                  isBuyerSection: true,  // Set to true for the Buyer Details section
+                  child: GestureDetector(
+                    onTap: () async {
+                        final client = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
+                        );
+                        if (client != null) {
+                          setState(() {
+                            selectedClient = client;
+                          });
+                        }
                     },
+                    child: _buildBuyerDetails(),
                   ),
+                ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Divider(color: Colors.blue.shade100, thickness: 1,),
+          ),
 
-                  const SizedBox(height: 10),
-
-                  // Add Item Button
-                  GestureDetector(
-                    onTap: _selectProduct,
-                    child: _buildAddButton("Add Item", FontAwesomeIcons.plusCircle, Colors.green),
+                _buildSection(
+                  title: "Invoice Details",
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildDateField("Invoice Date", invoiceDateController),
+                      _buildDateField("Due Date", dueDateController),
+                    ],
                   ),
-
-                  const SizedBox(height: 10),
-
-                  // Discount Option (if needed)
-                  GestureDetector(
-                    onTap: () => _applyDiscount(context),
-                    child: const Text("Add a Discount", style: TextStyle(color: Colors.blue)),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                ),
+                _buildSection(
+                  title: "Items Details",
+                  child: _buildItemTable(),
+                  // Column(
+                  //   children: [
+                  //     // "Clear All Items" Button
+                  //     if (selectedProducts.isNotEmpty)
+                  //       GestureDetector(
+                  //         onTap: () {
+                  //           setState(() {
+                  //             selectedProducts.clear();
+                  //           });
+                  //         },
+                  //         child: const Text(
+                  //           "Clear all Items",
+                  //           style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  //         ),
+                  //       ),
+                  //     const SizedBox(height: 8),
+                  //
+                  //
+                  //     ListView.builder(
+                  //       shrinkWrap: true,
+                  //       physics: const NeverScrollableScrollPhysics(),
+                  //       itemCount: selectedProducts.length,
+                  //       itemBuilder: (context, index) {
+                  //         var product = selectedProducts[index];
+                  //
+                  //         // Get product details
+                  //         double price = product['product_price'];
+                  //         int qty = product['qty'] ?? 1;
+                  //         double gstRate = product['product_gst'];
+                  //
+                  //         // Calculate new total price based on quantity
+                  //         double totalPrice = price * qty;
+                  //         double gstAmount = totalPrice * gstRate / 100;
+                  //
+                  //         // Determine if IGST or CGST & SGST should be applied
+                  //         bool isSameState = selectedClient != null &&
+                  //             selectedClient!['client_state'] == companyState;
+                  //
+                  //         return ListTile(
+                  //           title: Center(
+                  //             child: Text(
+                  //               product['product_name'],
+                  //               style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 25),
+                  //             ),
+                  //           ),
+                  //           subtitle: Column(
+                  //             crossAxisAlignment: CrossAxisAlignment.start,
+                  //             children: [
+                  //               Row(
+                  //                 children: [
+                  //                   // Remove Product Button
+                  //                   IconButton(
+                  //                     icon: const Icon(Icons.remove_circle, color: Colors.red),
+                  //                     onPressed: () {
+                  //                       setState(() {
+                  //                         selectedProducts.removeAt(index);
+                  //                       });
+                  //                     },
+                  //                   ),
+                  //                   // Edit Product Button
+                  //                   IconButton(
+                  //                     icon: const Icon(Icons.edit, color: Colors.blue),
+                  //                     onPressed: () {
+                  //                       _editProduct(context, index);
+                  //                     },
+                  //                   ),
+                  //                   // Quantity & Price
+                  //                   Text(
+                  //                     "$qty X ₹${price.toStringAsFixed(2)}",
+                  //                     style: const TextStyle(fontWeight: FontWeight.bold),
+                  //                   ),
+                  //                 ],
+                  //               ),
+                  //               // GST Details
+                  //               if (isSameState) ...[
+                  //                 Text("CGST: ₹${(gstAmount / 2).toStringAsFixed(2)} (${(gstRate / 2).toStringAsFixed(2)}%)"),
+                  //                 Text("SGST: ₹${(gstAmount / 2).toStringAsFixed(2)} (${(gstRate / 2).toStringAsFixed(2)}%)"),
+                  //               ] else ...[
+                  //                 Text("IGST: ₹${gstAmount.toStringAsFixed(2)} (${gstRate.toStringAsFixed(2)}%)"),
+                  //               ],
+                  //               // Updated Total Price
+                  //               Text(
+                  //                 "Total: ₹${(totalPrice + gstAmount).toStringAsFixed(2)}",
+                  //                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                  //               ),
+                  //             ],
+                  //           ),
+                  //         );
+                  //       },
+                  //     ),
+                  //
+                  //     const SizedBox(height: 10),
+                  //
+                  //     // Add Item Button
+                  //     GestureDetector(
+                  //       onTap: _selectProduct,
+                  //       child: _buildAddButton("Add Item", FontAwesomeIcons.plusCircle, Colors.green),
+                  //     ),
+                  //
+                  //     const SizedBox(height: 10),
+                  //
+                  //     // Discount Option (if needed)
+                  //     GestureDetector(
+                  //       onTap: () => _applyDiscount(context),
+                  //       child: const Text("Add a Discount", style: TextStyle(color: Colors.blue)),
+                  //     ),
+                  //
+                  //     const SizedBox(height: 10),
+                  //
+                  //     // Total Calculation Section
+                  //     Padding(
+                  //       padding: const EdgeInsets.all(10.0),
+                  //       child: Column(
+                  //         crossAxisAlignment: CrossAxisAlignment.start,
+                  //         children: [
+                  //           _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
+                  //           _buildSummaryRow(
+                  //             "$discountPercentage% Discount",
+                  //             "- ₹${(_getTotalPrice() ) * discountPercentage / 100}",
+                  //             isBold: true,
+                  //             isHighlighted: true,
+                  //           ),
+                  //           if (_getTotalGST() > 0)
+                  //             _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
+                  //           _buildSummaryRow(
+                  //             "Total Amount",
+                  //             // "- ₹${((_getTotalPrice() ) * discountPercentage / 100) + _getTotalGST()}",
+                  //             "₹${(_getTotalPrice() + _getTotalGST()).toStringAsFixed(2)}",
+                  //             isBold: true,
+                  //             isHighlighted: true,
+                  //           ),
+                  //
+                  //           _buildSummaryRow(
+                  //             "Total Amount (After Discount)",
+                  //             "₹${_getDiscountedTotal().toStringAsFixed(2)}",
+                  //             isBold: true,
+                  //             isHighlighted: true,
+                  //           ),
+                  //         ],
+                  //       ),
+                  //     ),
+                  //   ],
+                  // ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                ),
+                _buildSection(
+                  title: "Company Details",
+                  isEditable: true,
+                  child: Column(
+                    children: [
+                      _buildDetailRow(FontAwesomeIcons.user, companyName),
+                      SizedBox(height: 5),
+                      _buildDetailRow(FontAwesomeIcons.map, companyState),
+                    ],
                   ),
-
-                  const SizedBox(height: 10),
-
-                  // Total Calculation Section
-                  Card(
-                    margin: const EdgeInsets.symmetric(vertical: 5),
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
-                          _buildSummaryRow(
-                            "$discountPercentage% Discount",
-                            "- ₹${(_getTotalPrice() ) * discountPercentage / 100}",
-                            isBold: true,
-                            isHighlighted: true,
-                          ),
-                          if (_getTotalGST() > 0)
-                            _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
-                          _buildSummaryRow(
-                            "Total Amount",
-                            // "- ₹${((_getTotalPrice() ) * discountPercentage / 100) + _getTotalGST()}",
-                            "₹${(_getTotalPrice() + _getTotalGST()).toStringAsFixed(2)}",
-                            isBold: true,
-                            isHighlighted: true,
-                          ),
-
-                          _buildSummaryRow(
-                            "Total Amount (After Discount)",
-                            "₹${_getDiscountedTotal().toStringAsFixed(2)}",
-                            isBold: true,
-                            isHighlighted: true,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-
-
-
-            _buildSection(
-              title: "Company Details",
-              isEditable: true,
-              child: Column(
-                children: [
-                  _buildDetailRow(FontAwesomeIcons.user, companyName),
-                  SizedBox(height: 10),
-                  _buildDetailRow(FontAwesomeIcons.map, companyState),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -642,83 +669,148 @@ class _InvoiceState extends State<Invoice> {
     if (selectedClient == null) {
       return _buildAddButton("Add Buyer", FontAwesomeIcons.userPlus, Colors.green);
     } else {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (selectedClient!['client_company'] != null)
-            _buildDetailRow(FontAwesomeIcons.user, selectedClient!['client_company'].toString()), // ✅ Convert to String
-
-          if (selectedClient!['client_address'] != null)
-            _buildDetailRow(FontAwesomeIcons.mapMarkerAlt, selectedClient!['client_address'].toString()), // ✅ Convert to String
-
-          if (selectedClient!['client_gstin'] != null)
-            Text("GSTIN: ${selectedClient!['client_gstin']}", style: TextStyle(fontWeight: FontWeight.w500)),
-
-          if (selectedClient!['client_state'] != null)
-            _buildDetailRow(FontAwesomeIcons.map, selectedClient!['client_state'].toString()), // ✅ Convert to String
-
-          if (selectedClient!['client_contact'] != null)
-            _buildDetailRow(FontAwesomeIcons.phone, selectedClient!['client_contact'].toString()), // ✅ Convert to String
-        ],
+      return ListTile(
+        leading: CircleAvatar(
+          backgroundColor: themecolor, // Ensure `themecolor` is defined
+          child: Text(
+            selectedClient!['client_company'][0].toUpperCase(), // First letter
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+        title: Text(
+          selectedClient!['client_company'].toString(),
+          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // if (selectedClient!['client_address'] != null)
+            //   Text("Address: ${selectedClient!['client_address']}"),
+            // if (selectedClient!['client_gstin'] != null)
+            //   Text("GSTIN: ${selectedClient!['client_gstin']}"),
+            if (selectedClient!['client_state'] != null)
+              Text("State: ${selectedClient!['client_state']}"),
+            if (selectedClient!['client_contact'] != null)
+              Text("Contact: ${selectedClient!['client_contact']}"),
+          ],
+        ),
+        // trailing: PopupMenuButton<String>(
+        //   icon: const Icon(Icons.more_vert, color: Colors.black54),
+        //   onSelected: (value) async {
+        //     if (value == 'edit') {
+        //       bool? result = await Navigator.push(
+        //         context,
+        //         MaterialPageRoute(
+        //           builder: (context) => AddClient(clientData: selectedClient),
+        //         ),
+        //       );
+        //
+        //       if (result == true) {
+        //         setState(() {}); // Refresh UI after editing
+        //       }
+        //     } else if (value == 'delete') {
+        //       showDialog(
+        //         context: context,
+        //         builder: (context) => AlertDialog(
+        //           title: const Text("Delete Client"),
+        //           content: const Text("Are you sure you want to delete this client?"),
+        //           actions: [
+        //             TextButton(
+        //               onPressed: () => Navigator.pop(context),
+        //               child: const Text("Cancel"),
+        //             ),
+        //             TextButton(
+        //               onPressed: () {
+        //                 deleteClient(selectedClient!['id']);
+        //                 Navigator.pop(context);
+        //                 setState(() {}); // Refresh UI after deletion
+        //               },
+        //               child: const Text("Delete", style: TextStyle(color: Colors.red)),
+        //             ),
+        //           ],
+        //         ),
+        //       );
+        //     }
+        //   },
+        //   itemBuilder: (context) => [
+        //     PopupMenuItem(
+        //       value: 'edit',
+        //       child: Row(
+        //         children: [
+        //           Icon(Icons.edit, color: Colors.blue),
+        //           SizedBox(width: 8),
+        //           Text("Edit"),
+        //         ],
+        //       ),
+        //     ),
+        //     PopupMenuItem(
+        //       value: 'delete',
+        //       child: Row(
+        //         children: [
+        //           Icon(Icons.delete, color: Colors.red),
+        //           SizedBox(width: 8),
+        //           Text("Delete"),
+        //         ],
+        //       ),
+        //     ),
+        //   ],
+        // ),
       );
     }
   }
 
   Widget _buildSection({required String title, required Widget child, bool isEditable = false, bool isBuyerSection = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
-      child: Card(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        elevation: 3,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.blue,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(8),
-                  topRight: Radius.circular(8),
-                ),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, ),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(5),
+                topRight: Radius.circular(5),
+
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  if (isBuyerSection) ...[
-                    IconButton(
-                      icon: Icon(Icons.add_circle_outline, color: Colors.white),
-                      //   (
-                      //   selectedClient == null ? Icons.add_circle : Icons.edit,
-                      //   color: Colors.white,
-                      // ),
-                      onPressed: () async {
-                        final client = await Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
-                        );
-                        if (client != null) {
-                          setState(() {
-                            selectedClient = client;
-                          });
-                        }
-                      },
-                    ),
-                  ] else if (isEditable) ...[
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.white),
-                      onPressed: () {},
-                    ),
-                  ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(title, style: TextStyle(color: themecolor, fontWeight: FontWeight.w600,fontSize: 20)),
+                if (isBuyerSection) ...[
+                  IconButton(
+                    icon: Icon(Icons.add_circle, color: themecolor,size: 28,),
+                    //   (
+                    //   selectedClient == null ? Icons.add_circle : Icons.edit,
+                    //   color: Colors.white,
+                    // ),
+                    onPressed: () async {
+                      final client = await Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
+                      );
+                      if (client != null) {
+                        setState(() {
+                          selectedClient = client;
+                        });
+                      }
+                    },
+                  ),
+                ] else if (isEditable) ...[
+                  IconButton(
+                    icon: Icon(Icons.edit, color:themecolor),
+                    onPressed: _onOrganizationDetailTap,
+                  ),
                 ],
-              ),
+              ],
             ),
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: child,
-            ),
-          ],
-        ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(5),
+            child: child,
+          ),
+        ],
       ),
     );
   }
@@ -766,4 +858,213 @@ class _InvoiceState extends State<Invoice> {
       ),
     );
   }
+
+  Widget _buildItemTable() {
+    return Column(
+      children: [
+        if (selectedProducts.isNotEmpty)
+          // Align(
+          //   alignment: Alignment.centerRight,
+          //   child: TextButton(
+          //     onPressed: () {
+          //       setState(() {
+          //         selectedProducts.clear();
+          //         discountPercentage = 0; // Reset discount
+          //       });
+          //     },
+          //     child: const Text(
+          //       "Clear all Items",
+          //       style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+          //     ),
+          //   ),
+          // ),
+          SizedBox(
+            width: MediaQuery.of(context).size.width, // Full width
+            child: DataTable(
+              columnSpacing: 5, // Reduce spacing to prevent overflow
+              horizontalMargin: 5,
+              headingRowColor: MaterialStateColor.resolveWith(
+                    (states) => Colors.blue.withOpacity(0.1),
+              ),
+              columns: [
+                DataColumn(
+                  label: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.4, // 40% width
+                    child: Text("Product", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.2, // 20% width
+                    child: Text("GST", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ),
+                DataColumn(
+                  label: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.2, // Consistent width for "Total"
+                    child: Text("Total", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                ),
+              ],
+              rows: selectedProducts.asMap().entries.map((entry) {
+                int index = entry.key;
+                var product = entry.value;
+                double price = product['product_price'];
+                int qty = int.tryParse(product['qty'].toString()) ?? 1;
+                double gstRate = product['product_gst'];
+                double totalPrice = price * qty;
+                double gstAmount = totalPrice * gstRate / 100;
+                bool isSameState = selectedClient != null &&
+                    selectedClient!['client_state'] == companyState;
+
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.4, // 40% width
+                        child: Text(
+                          "${product['product_name']}\n$qty x ₹${price.toStringAsFixed(2)}",
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.2, // 20% width
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text: isSameState
+                                    ? "₹${(gstAmount / 2).toStringAsFixed(2)}"
+                                    : "₹${gstAmount.toStringAsFixed(2)}\n",
+                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                              ),
+                              TextSpan(
+                                text: isSameState ? "" : "(IGST)",
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      SizedBox(
+                        width: MediaQuery.of(context).size.width * 0.3, // 20% width
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                "₹${(totalPrice + gstAmount).toStringAsFixed(2)}",
+                                style: TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            PopupMenuButton<String>(
+                              icon: Icon(Icons.more_vert, size: 20),
+                              padding: EdgeInsets.zero,
+                              constraints: BoxConstraints(minWidth: 100), // Adjust constraints
+                              onSelected: (String value) {
+                                if (value == 'edit') {
+                                  _editProduct(context, index);
+                                } else if (value == 'delete') {
+                                  setState(() {
+                                    selectedProducts.removeAt(index);
+                                  });
+                                }
+                              },
+                              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                                const PopupMenuItem<String>(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, color: Colors.blue),
+                                      SizedBox(width: 8),
+                                      Text('Edit'),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem<String>(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, color: Colors.red),
+                                      SizedBox(width: 8),
+                                      Text('Delete'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+
+
+        const SizedBox(height: 10),
+
+        // Add Product Button
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+          ),
+          onPressed: _selectProduct,
+          icon: const Icon(FontAwesomeIcons.plusCircle, color: Colors.white),
+          label: const Text("Add Item", style: TextStyle(color: Colors.white)),
+        ),
+
+        const SizedBox(height: 5),
+
+        // Apply Discount Button
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 5),
+          ),
+          onPressed: () => _applyDiscount(context),
+          icon: const Icon(Icons.percent, color: Colors.white),
+          label: const Text("Apply Discount", style: TextStyle(color: Colors.white)),
+        ),
+
+        const SizedBox(height: 15),
+
+        // Summary Section
+        Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            children: [
+              _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
+              _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
+              _buildSummaryRow(
+                "Discount (${discountPercentage.toStringAsFixed(2)}%)",
+                "- ₹${(_getTotalPrice() * discountPercentage / 100).toStringAsFixed(2)}",
+                isBold: true,
+                isHighlighted: true,
+              ),
+              _buildSummaryRow(
+                "Total Amount After Discount",
+                "₹${_getDiscountedTotal().toStringAsFixed(2)}",
+                isBold: true,
+                isHighlighted: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+
 }
+
+
+

@@ -459,8 +459,16 @@ Future<int> saveInvoice(Map<String, dynamic> invoiceData) async {
 
 Future<List<Map<String, dynamic>>> fetchInvoices() async {
   final db = await DatabaseHelper.getDatabase();
-  return await db.query('invoice', orderBy: 'invoice_id DESC');
+  return await db.rawQuery('''
+    SELECT 
+      i.*, 
+      c.client_company 
+    FROM invoice i
+    LEFT JOIN client c ON i.client_id = c.client_id
+    ORDER BY i.invoice_id DESC
+  ''');
 }
+
 
 
 
