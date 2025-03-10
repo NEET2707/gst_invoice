@@ -351,6 +351,7 @@ class _InvoiceState extends State<Invoice> {
                 int updatedQty = int.tryParse(qtyController.text) ?? 1;
 
                 setState(() {
+                  selectedProducts[index] = Map<String, dynamic>.from(selectedProducts[index]);
                   selectedProducts[index]['qty'] = updatedQty;
                 });
 
@@ -689,9 +690,9 @@ class _InvoiceState extends State<Invoice> {
             // if (selectedClient!['client_gstin'] != null)
             //   Text("GSTIN: ${selectedClient!['client_gstin']}"),
             if (selectedClient!['client_state'] != null)
-              Text("State: ${selectedClient!['client_state']}"),
+              Text("${selectedClient!['client_state']}"),
             if (selectedClient!['client_contact'] != null)
-              Text("Contact: ${selectedClient!['client_contact']}"),
+              Text("${selectedClient!['client_contact']}"),
           ],
         ),
         // trailing: PopupMenuButton<String>(

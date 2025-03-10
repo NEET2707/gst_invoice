@@ -147,13 +147,13 @@ class _SelectClientState extends State<SelectClient> {
                               Expanded(
                                 child: Text(
                                   client['client_company'],
-                                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 15),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               SizedBox(width: 4),
                               Text(
-                                client['client_contact'].toString(),
+                                client['client_state'].toString(),
                                 style: const TextStyle(color: Colors.black54, fontSize: 11),
                               ),
                             ],
@@ -162,17 +162,21 @@ class _SelectClientState extends State<SelectClient> {
                           // Second row: State + GSTIN
                           Row(
                             children: [
-                              Text("${client['client_state']} ", style: TextStyle(fontSize: 11),),
-                              Text("/ ${client['client_gstin'].toString()}", style: TextStyle(fontSize: 11)),
+                              Text("${client['client_contact']}                       ", style: TextStyle(fontSize: 11)),
+                              Text("${client['client_gstin']}", style: TextStyle(fontSize: 11)),
                             ],
-                          ),
+                          )
                         ],
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_vert, color: Colors.black54),
+                            icon: Padding(
+                              padding: const EdgeInsets.only(left: 20),
+                              child: Icon(Icons.more_vert, color: Colors.black54),
+                            ),
+                            // constraints: BoxConstraints(minWidth: 100),
                             onSelected: (value) async {
                               if (value == 'edit') {
                                 bool? result = await Navigator.push(
@@ -181,8 +185,8 @@ class _SelectClientState extends State<SelectClient> {
                                     builder: (context) => AddClient(clientData: client),
                                   ),
                                 );
-
                                 if (result == true) {
+                                  fetchClients();
                                   setState(() {}); // Refresh UI after editing
                                 }
                               } else if (value == 'delete') {

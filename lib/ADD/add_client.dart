@@ -140,7 +140,7 @@ class _AddClientState extends State<AddClient> {
         );
       }
 
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     } catch (e) {
       print("Error saving client: $e");
       ScaffoldMessenger.of(context).showSnackBar(

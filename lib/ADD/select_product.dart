@@ -122,7 +122,7 @@ class _SelectProductState extends State<SelectProduct> {
                 itemBuilder: (context, index) {
                   final product = filteredProducts[index];
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4), // tighter spacing
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4), // tighter spacing
                     child: InkWell(
                       onTap: () {
                         if (widget.isyes == true)
@@ -155,9 +155,12 @@ class _SelectProductState extends State<SelectProduct> {
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    Text(
-                                      "₹${product['product_price']}",
-                                      style: const TextStyle(fontSize: 12),
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 14.0),
+                                      child: Text(
+                                        "₹${product['product_price']}",
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -173,8 +176,13 @@ class _SelectProductState extends State<SelectProduct> {
                               ],
                             ),
                           ),
+
                           PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_vert, size: 18, color: Colors.black54),
+                            icon: Padding(
+                              padding: const EdgeInsets.only(left: 24.0),
+                              child: Icon(Icons.more_vert,  color: Colors.black54),
+                            ),
+                            // constraints: BoxConstraints(minWidth: 1000),
                             onSelected: (value) async {
                               if (value == 'edit') {
                                 bool? result = await Navigator.push(

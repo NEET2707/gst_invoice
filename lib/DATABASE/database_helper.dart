@@ -348,7 +348,6 @@ class DatabaseHelper {
     }
   }
 
-
   Future<String?> picksafdirectory() async {
   final _safUtil = SafUtil();
   String? selectedDirectory = await _safUtil.openDirectory();
@@ -380,8 +379,8 @@ class DatabaseHelper {
         }
       }
       String csv = const ListToCsvConverter().convert(csvData);
-  Uint8List unitdata = Uint8List.fromList(csv.codeUnits);
-   await _safStreamPlugin.writeFileBytes(selectedDirectory??"", "fxdfhjh.csv", "text/csv", unitdata);
+      Uint8List unitdata = Uint8List.fromList(csv.codeUnits);
+      await _safStreamPlugin.writeFileBytes(selectedDirectory??"", "fxdfhjh.csv", "text/csv", unitdata);
 
 
       print("✅ Exported Success");

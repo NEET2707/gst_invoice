@@ -128,7 +128,16 @@ class _GstInvoiceState extends State<GstInvoice>{
         onRefresh: loadInvoices,
         child: _isLoading  // ✅ Show loader if data is fetching
             ? Center(child: CircularProgressIndicator())
-            : buildInvoiceList(),
+            : Card(
+              child: Column(
+                children: [
+                  SizedBox(height: 15,),
+                  buildInvoiceList(),
+                  SizedBox(height: 50,),
+              
+                ],
+              ),
+            ),
       )
           : RefreshIndicator(onRefresh: () async { loadInvoices(); },
           child: _pages[_selectedIndex]),
@@ -193,123 +202,121 @@ class _GstInvoiceState extends State<GstInvoice>{
         style: TextStyle(fontSize: 18, color: Colors.grey),
       ),
     )
-        : Card(
-          child: ListView.builder(
-                itemCount: filteredInvoices.length,
-                itemBuilder: (context, index) {
-          final invoice = filteredInvoices[index];
-          bool isPaid = invoice['is_paid'] == 1;
-          
-          return Column(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => Detail(
-                        invoiceId: int.parse(invoice['invoice_id'].toString()), // Convert to int
-                        clientid: int.parse(invoice['client_id'].toString()),
-                        onStatusUpdated: loadInvoices,
+        : ListView.separated(
+      shrinkWrap: true,
+               physics: NeverScrollableScrollPhysics(),
+              separatorBuilder: (context, index) =>  Divider(color: Colors.grey.shade300, thickness: 1),
+              itemCount: filteredInvoices.length,
+              itemBuilder: (context, index) {
+        final invoice = filteredInvoices[index];
+        bool isPaid = invoice['is_paid'] == 1;
+
+        return Column(
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => Detail(
+                      invoiceId: int.parse(invoice['invoice_id'].toString()), // Convert to int
+                      clientid: int.parse(invoice['client_id'].toString()),
+                      onStatusUpdated: loadInvoices,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                margin: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                padding: const EdgeInsets.all(2.0),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(10),
+                  // color: Colors.white,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: themecolor,
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        "${invoice['invoice_id']}",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
-                  );
-                },
-                child: Container(
-                  margin: EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                  padding: const EdgeInsets.all(8.0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: Colors.white,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: themecolor,
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          "${invoice['invoice_id']}",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  invoice['client_company'] ?? "No Client",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 18),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 4),
-                            Row(
-                              children: [
-                                Text(
-                                  formatDate(invoice['invoic_date']),
-                                  style:
-                                  TextStyle(color: Colors.grey, fontSize: 14),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      SizedBox(width: 10),
-                      Column(
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
                               Text(
-                                "₹ ${invoice['total_amount'].toStringAsFixed(2)}",
+                                invoice['client_company'] ?? "No Client",
                                 style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.w500),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 18),
                               ),
                             ],
                           ),
                           SizedBox(height: 4),
-                          Container(
-                            padding:
-                            EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isPaid ? Colors.green : Colors.red,
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(
-                              isPaid ? "PAID" : "UNPAID",
-                              style: TextStyle(color: Colors.white, fontSize: 10),
-                            ),
+                          Row(
+                            children: [
+                              Text(
+                                formatDate(invoice['invoic_date']),
+                                style:
+                                TextStyle(color: Colors.grey, fontSize: 14),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                    SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              "₹ ${invoice['total_amount'].toStringAsFixed(2)}",
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 4),
+                        Container(
+                          padding:
+                          EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: isPaid ? Colors.green : Colors.red,
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            isPaid ? "PAID" : "UNPAID",
+                            style: TextStyle(color: Colors.white, fontSize: 10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Divider(color: Colors.grey.shade300, thickness: 1),
-              ),
-            ],
-          );
-                },
-              ),
+            ),
+
+          ],
         );
+              },
+            );
   }
 }
