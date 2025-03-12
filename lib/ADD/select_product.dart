@@ -20,6 +20,8 @@ class _SelectProductState extends State<SelectProduct> {
   List<Map<String, dynamic>> filteredProducts = []; // ✅ Declare this
 
   TextEditingController searchController = TextEditingController();
+  FocusNode searchFocusNode = FocusNode();
+
   late bool boom;
 
   @override
@@ -28,6 +30,8 @@ class _SelectProductState extends State<SelectProduct> {
     fetchProducts();
     boom = widget.boom;
     print("00000000000000000000000000000$boom");
+    searchController.addListener(() => setState(() {}));
+    searchFocusNode.addListener(() => setState(() {}));
   }
 
   Future<void> fetchProducts() async {
@@ -58,6 +62,14 @@ class _SelectProductState extends State<SelectProduct> {
     fetchProducts(); // Refresh the list after deletion
   }
 
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    searchFocusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -68,29 +80,39 @@ class _SelectProductState extends State<SelectProduct> {
       ),
       body: Column(
         children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.only(top: 5, bottom: 4, left: 5, right: 5),
-            child: SizedBox(
-              height: 40, // Reduced height
-              child: TextField(
-                controller: searchController,
-                onChanged: filterProduct,
-                decoration: InputDecoration(
-                  hintText: "Search",
-                  prefixIcon: const Icon(Icons.search, size: 20), // Optional: smaller icon
-                  isDense: true, // Reduces height
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8), // Adjusts vertical padding
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
-                ),
-              ),
+      // ✅ Fixed: Search Bar with Padding
+      Padding(
+      padding: const EdgeInsets.only(top: 5, bottom: 4, left: 5, right: 5),
+      child: SizedBox(
+        height: 40,
+        child: TextField(
+          controller: searchController,
+          focusNode: searchFocusNode,
+          onChanged: filterProduct,
+          decoration: InputDecoration(
+            hintText: "Search",
+            prefixIcon: const Icon(Icons.search, size: 20),
+            suffixIcon: searchFocusNode.hasFocus
+                ? IconButton(
+              icon: const Icon(Icons.clear, size: 20),
+              onPressed: () {
+                searchController.clear();
+                filterProduct('');
+                FocusScope.of(context).unfocus(); // optional: hide keyboard
+              },
+            )
+                : null,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10.0),
             ),
+            filled: true,
+            fillColor: Colors.white,
           ),
-
+        ),
+      ),
+      ),
           // Display Products in Card View
           Expanded(
             child: productList.isEmpty

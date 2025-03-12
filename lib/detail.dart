@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'ADD/invoice.dart';
 import 'DATABASE/database_helper.dart';
@@ -34,8 +35,7 @@ class _DetailState extends State<Detail> {
   List<Map<String, dynamic>> productList = [];
   String? bankDetailsController ;
   String? termsController ;
-
-
+  bool isGstApplicable = true;
 
   @override
   void initState() {
@@ -44,6 +44,14 @@ class _DetailState extends State<Detail> {
     fetchInvoicesByClientId(widget.clientid);
     fetchProducts(); // Fetch products
     _loadCompanyDetails();
+    _loadGstPreference();
+  }
+
+  Future<void> _loadGstPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      isGstApplicable = (prefs.getInt("isGstApplicable") ?? 1) == 1;
+    });
   }
 
   Future<List<Map<String, dynamic>>> fetchInvoicesByClientId(int clientId) async {
@@ -160,6 +168,10 @@ class _DetailState extends State<Detail> {
     print(invoiceDetails);
     print("999999999999999999999999999999999999999");
 
+    final prefs = await SharedPreferences.getInstance();
+    bool isGstApplicable = (prefs.getInt("isGstApplicable") ?? 1) == 1;
+
+
     Uint8List? imageBytes;
     if (invoiceDetails?['company_logo'] != null && invoiceDetails?['company_logo'].isNotEmpty) {
       imageBytes = base64Decode(invoiceDetails!['company_logo']);
@@ -174,13 +186,13 @@ class _DetailState extends State<Detail> {
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Container(
-                width: PdfPageFormat.a4.width - 32, // Page width minus margins
+                width: PdfPageFormat.a4.width - 32,
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.SizedBox(
-                      width: PdfPageFormat.a4.width * 0.7, // Constraint width to 70% of the page
+                      width: PdfPageFormat.a4.width * 0.7,
                       child: pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
@@ -379,22 +391,24 @@ class _DetailState extends State<Detail> {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       // Right Side: Terms & Conditions (50% width)
-                      pw.Expanded(
-                        flex: 1,
-                        child: pw.Container(
-                          height: 150,
-                          decoration: pw.BoxDecoration(border: pw.Border.all(width: 1, color: PdfColors.grey)),
-                          padding: pw.EdgeInsets.all(8),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Text("Bank Details", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
-                              pw.SizedBox(height: 5),
-                              pw.Text(bankDetailsController.toString(), style: pw.TextStyle(fontSize: 12)),
-                            ],
+                      if (bankDetailsController!.isNotEmpty)
+                        pw.Expanded(
+                          flex: 1,
+                          child: pw.Container(
+                            height: 150,
+                            decoration: pw.BoxDecoration(border: pw.Border.all(width: 1, color: PdfColors.grey)),
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text("Bank Details", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                                pw.SizedBox(height: 5),
+                                pw.Text(bankDetailsController.toString(), style: pw.TextStyle(fontSize: 12)),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+
 
                       pw.SizedBox(width: 10), // Space between the two sections
 
@@ -410,11 +424,12 @@ class _DetailState extends State<Detail> {
                           children: [
                             _buildSummaryRow("Taxable Amount", taxableAmount.toStringAsFixed(2)),
                             _buildSummaryRow("Discount (${discount.toStringAsFixed(2)}%)", "- ${discountAmount.toStringAsFixed(2)}"),
-                            if (isSameState) ...[
-                              _buildSummaryRow("CGST", totalCcgst.toStringAsFixed(2)),
-                              _buildSummaryRow("SGST", totalSgst.toStringAsFixed(2)),
-                            ] else
-                              _buildSummaryRow("IGST", totalIgst.toStringAsFixed(2)),
+                            if (isGstApplicable)
+                              if (isSameState) ...[
+                                _buildSummaryRow("CGST", totalCcgst.toStringAsFixed(2)),
+                                _buildSummaryRow("SGST", totalSgst.toStringAsFixed(2)),
+                              ] else
+                                _buildSummaryRow("IGST", totalIgst.toStringAsFixed(2)),
                             pw.TableRow(
                               decoration: pw.BoxDecoration(color: PdfColors.grey300),
                               children: [
@@ -425,7 +440,7 @@ class _DetailState extends State<Detail> {
                                 pw.Padding(
                                   padding: pw.EdgeInsets.all(8),
                                   child: pw.Text(
-                                    "${(taxableAmount + (isSameState ? (totalCcgst + totalSgst) : totalIgst) - discountAmount).toStringAsFixed(2)}",
+                                    "${(taxableAmount + (isGstApplicable ? (isSameState ? (totalCcgst + totalSgst) : totalIgst) : 0) - discountAmount).toStringAsFixed(2)}",
                                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                                   ),
                                 ),
@@ -439,26 +454,25 @@ class _DetailState extends State<Detail> {
 
                   pw.SizedBox(height: 10),
 
-                  // Bank Details Section
-                  pw.Container(
-                    width: double.infinity,
-                    padding: pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.grey, width: 1),
-                      color: PdfColors.grey100,
+                  // Bank Details SectiontermsController
+                  if (termsController!.isNotEmpty)
+                    pw.Container(
+                      width: double.infinity,
+                      padding: pw.EdgeInsets.all(8),
+                      decoration: pw.BoxDecoration(
+                        border: pw.Border.all(color: PdfColors.grey, width: 1),
+                        color: PdfColors.grey100,
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text("Terms & Conditions", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                          pw.SizedBox(height: 5),
+                          pw.Text(termsController.toString(), style: pw.TextStyle(fontSize: 12)),
+                        ],
+                      ),
                     ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
 
-
-
-                        pw.Text("Terms & Conditions", style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold,)),
-                        pw.SizedBox(height: 5),
-                        pw.Text(termsController.toString(), style: pw.TextStyle(fontSize: 12)),
-                      ],
-                    ),
-                  ),
 
                   pw.SizedBox(height: 30),
 
@@ -798,65 +812,59 @@ class _DetailState extends State<Detail> {
   Widget _buildGST() {
     bool isSameState = invoiceDetails?['is_equal_state'] == 1;
     double taxableAmount = invoiceDetails?['taxable_amount'] ?? 0.0;
-    double totalTax = invoiceDetails?['total_tax'] ?? 0.0;
-    double totalAmount = (invoiceDetails?['total_amount'] ?? 0.0).toDouble();
     double discount = (invoiceDetails?['discount'] ?? 0.0).toDouble();
     double totalCcgst = (invoiceDetails?['total_cgst'] ?? 0.0).toDouble();
     double totalSgst = (invoiceDetails?['total_sgst'] ?? 0.0).toDouble();
     double totalIgst = (invoiceDetails?['total_igst'] ?? 0.0).toDouble();
     double discountAmount = (taxableAmount * discount) / 100;
+    double totalWithoutGst = taxableAmount - discountAmount;
+    double totalWithGst = taxableAmount +
+        (isSameState ? (totalCcgst + totalSgst) : totalIgst) -
+        discountAmount;
 
     return Padding(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "GST & Total",
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
-          ),
+          Text("Summary", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
           Divider(),
           _buildRow(
             title: "Taxable Amount",
-            value: "₹${(taxableAmount ).toStringAsFixed(2)}",
+            value: "₹${taxableAmount.toStringAsFixed(2)}",
             isBold: true,
             color: Colors.green,
           ),
           _buildRow(
             title: "Discount (${discount.toStringAsFixed(2)}%)",
-            value: "₹${(taxableAmount * discount / 100).toStringAsFixed(2)}",
+            value: "₹${discountAmount.toStringAsFixed(2)}",
           ),
-          if (isSameState) ...[
+          if (isGstApplicable) ...[
+            if (isSameState) ...[
+              _buildRow(title: "CGST", value: "₹${totalCcgst.toStringAsFixed(2)}"),
+              _buildRow(title: "SGST", value: "₹${totalSgst.toStringAsFixed(2)}"),
+            ] else
+              _buildRow(title: "IGST", value: "₹${totalIgst.toStringAsFixed(2)}"),
             _buildRow(
-              title: "CGST",
-              value: "₹${(invoiceDetails?['total_cgst'] ?? 0.0).toStringAsFixed(2)}",
+              title: "Total Amount",
+              value: "₹${(taxableAmount + (isSameState ? (totalCcgst + totalSgst) : totalIgst)).toStringAsFixed(2)}",
             ),
+            Divider(),
             _buildRow(
-              title: "SGST",
-              value: "₹${(invoiceDetails?['total_sgst'] ?? 0.0).toStringAsFixed(2)}",
+              title: "Final Amount",
+              value: "₹${totalWithGst.toStringAsFixed(2)}",
+              isBold: true,
+              color: Colors.blue,
             ),
-          ] else
+          ] else ...[
+            Divider(),
             _buildRow(
-              title: "IGST",
-              value: "₹${(invoiceDetails?['total_igst'] ?? 0.0).toStringAsFixed(2)}",
+              title: "Final Amount",
+              value: "₹${totalWithoutGst.toStringAsFixed(2)}",
+              isBold: true,
+              color: Colors.blue,
             ),
-
-          _buildRow(
-            title: "Total Amount",
-            value: "₹${(taxableAmount + (isSameState
-                ? (totalCcgst + totalSgst)
-                : totalIgst)).toStringAsFixed(2)}",
-          ),
-
-          Divider(),
-          _buildRow(
-            title: "Final Amount",
-            value: "₹${(taxableAmount + (isSameState
-                ? (totalCcgst + totalSgst)
-                : totalIgst) - discountAmount).toStringAsFixed(2)}",
-            isBold: true,
-            color: Colors.blue,
-          ),
+          ],
         ],
       ),
     );

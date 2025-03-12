@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:gst_invoice/color.dart';
 
 import '../DATABASE/database_helper.dart';
+import '../DATABASE/sharedprefhelper.dart';
 
 class AddClient extends StatefulWidget {
   final Map<String, dynamic>? clientData;
@@ -19,17 +20,42 @@ class _AddClientState extends State<AddClient> {
   late TextEditingController addressController = TextEditingController();
   String? selectedState;
   bool isStateEmpty = false;
+  bool isCompanyNameEmpty = false;
+  bool isGstinEmpty = false;
+
+  bool isGstinValid(String gstin) {
+    final pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$';
+    return RegExp(pattern).hasMatch(gstin);
+  }
+
 
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
     companyNameController.text = widget.clientData?['client_company']?.toString() ?? "";
     gstinController.text = widget.clientData?['client_gstin']?.toString() ?? "";
     contactController.text = widget.clientData?['client_contact']?.toString() ?? "";
     addressController.text = widget.clientData?['client_address']?.toString() ?? "";
-    selectedState = widget.clientData?['client_state']?.toString() ?? "";
+
+    // Set state from clientData or fallback to defaultCustomerState
+    selectedState = widget.clientData?['client_state']?.toString();
+
+    if (selectedState == null || selectedState!.isEmpty) {
+      _loadDefaultCustomerState();
+    }
   }
+
+  void _loadDefaultCustomerState() async {
+    final companyDetails = await SharedPrefHelper.getCompanyDetails();
+    final defaultCustomerState = companyDetails["defaultCustomerState"];
+
+    if (mounted && states.contains(defaultCustomerState)) {
+      setState(() {
+        selectedState = defaultCustomerState;
+      });
+    }
+  }
+
 
   final List<String> states = [
     "Andhra Pradesh", "Arunachal Pradesh", "Assam", "Bihar", "Chhattisgarh",
@@ -91,20 +117,13 @@ class _AddClientState extends State<AddClient> {
   }
 
   Future<void> saveClientData() async {
-    if (selectedState == null || selectedState!.isEmpty) {
-      setState(() {
-        isStateEmpty = true;
-      });
-      return;
-    }
+    setState(() {
+      isCompanyNameEmpty = companyNameController.text.trim().isEmpty;
+      isGstinEmpty = gstinController.text.trim().isEmpty || !isGstinValid(gstinController.text.trim());
+      isStateEmpty = selectedState == null || selectedState!.isEmpty;
+    });
 
-    if (companyNameController.text.isEmpty ||
-        gstinController.text.isEmpty ||
-        contactController.text.isEmpty ||
-        addressController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Please fill all fields!")),
-      );
+    if (isCompanyNameEmpty || isGstinEmpty || isStateEmpty) {
       return;
     }
 
@@ -120,32 +139,24 @@ class _AddClientState extends State<AddClient> {
       final db = await DatabaseHelper.getDatabase();
 
       if (widget.clientData == null) {
-        // Add New Client
         int id = await db.insert('client', clientData);
         if (id > 0) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text("Client saved successfully!")),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Client saved successfully!")));
         }
       } else {
-        // Update Existing Client (Only include columns to update, exclude 'id')
         await db.update(
           'client',
           clientData,
-          where: 'client_id = ?',  // Ensure your primary key column name is correct
-          whereArgs: [widget.clientData!['client_id']], // Use the correct ID
+          where: 'client_id = ?',
+          whereArgs: [widget.clientData!['client_id']],
         );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Client updated successfully!")),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Client updated successfully!")));
       }
 
       Navigator.pop(context, true);
     } catch (e) {
       print("Error saving client: $e");
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("An error occurred while saving client.")),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("An error occurred while saving client.")));
     }
   }
 
@@ -164,27 +175,44 @@ class _AddClientState extends State<AddClient> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            buildTextField("Client / Company Name", "Enter Name", controller: companyNameController),
-            buildTextField("GSTIN", "Enter GST Number", controller: gstinController),
-            buildTextField("Contact", "Enter Contact Number", controller: contactController, keyboardType: TextInputType.phone),
-            buildTextField("Address", "Enter Address", controller: addressController),
-            buildDropdownField("State", "Select State", selectedState, (value) {
-              setState(() {
-                selectedState = value;
-                isStateEmpty = false;
-              });
-            }, isStateEmpty),
-          ],
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              buildTextField("Client / Company Name", "Enter Name", controller: companyNameController, showError: isCompanyNameEmpty),
+              buildTextField(
+                "GSTIN",
+                "Enter GST Number",
+                controller: gstinController,
+                showError: isGstinEmpty,
+                errorMessage: gstinController.text.trim().isEmpty
+                    ? "*This field is required"
+                    : "*Enter valid GSTIN (15 characters)",
+              ),
+              buildTextField("Contact", "Enter Contact Number", controller: contactController, keyboardType: TextInputType.phone),
+              buildTextField("Address", "Enter Address", controller: addressController),
+              buildDropdownField("State", "Select State", selectedState, (value) {
+                setState(() {
+                  selectedState = value;
+                  isStateEmpty = false;
+                });
+              }, isStateEmpty),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-Widget buildTextField(String label, String hint, {TextEditingController? controller, TextInputType? keyboardType}) {
+Widget buildTextField(
+    String label,
+    String hint, {
+      TextEditingController? controller,
+      TextInputType? keyboardType,
+      bool showError = false,
+      String? errorMessage,
+    }) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -194,7 +222,7 @@ Widget buildTextField(String label, String hint, {TextEditingController? control
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: showError ? Colors.red : Colors.grey.shade300),
           boxShadow: [
             BoxShadow(
               color: Colors.grey.shade200,
@@ -204,6 +232,7 @@ Widget buildTextField(String label, String hint, {TextEditingController? control
           ],
         ),
         child: TextField(
+          textCapitalization: TextCapitalization.sentences,
           controller: controller,
           keyboardType: keyboardType,
           decoration: InputDecoration(
@@ -214,6 +243,11 @@ Widget buildTextField(String label, String hint, {TextEditingController? control
           ),
         ),
       ),
+      if (showError)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(errorMessage ?? "*This field is required", style: TextStyle(color: Colors.red, fontSize: 12)),
+        ),
       SizedBox(height: 10),
     ],
   );

@@ -22,6 +22,12 @@ class _ProductState extends State<Product> {
   bool _isGstApplicable = false;
   String _gstType = "same"; // Default to "same"
 
+  String? _nameErrorText;
+  String? _priceErrorText;
+  String? _gstErrorText;
+
+
+
   @override
   void initState() {
     super.initState();
@@ -51,12 +57,14 @@ class _ProductState extends State<Product> {
     String name = _nameController.text.trim();
     String priceText = _priceController.text.trim();
     String gstText = _gstController.text.trim();
-    String hsn = _hsnController.text.trim();
 
-    if (name.isEmpty || priceText.isEmpty || hsn.isEmpty || (_isGstApplicable && gstText.isEmpty)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('All fields are required!')),
-      );
+    setState(() {
+      _nameErrorText = name.isEmpty ? "This field is required" : null;
+      _priceErrorText = priceText.isEmpty ? "This field is required" : null;
+      _gstErrorText = (_isGstApplicable && gstText.isEmpty) ? "This field is required" : null;
+    });
+
+    if (_nameErrorText != null || _priceErrorText != null || _gstErrorText != null) {
       return;
     }
 
@@ -76,7 +84,7 @@ class _ProductState extends State<Product> {
       'product_name': name,
       'product_price': price,
       'product_gst': gst,
-      'product_hsn': hsn,
+      'product_hsn': _hsnController.text.trim(),
     };
 
     if (productId == null) {
@@ -116,18 +124,24 @@ class _ProductState extends State<Product> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            buildTextField("Product Name", "Enter Product Name", controller: _nameController),
-            buildTextField("Price", "Enter Product Price", controller: _priceController, keyboardType: TextInputType.number),
-            if (_isGstApplicable)
-              buildTextField(
-                "GST Rate(%)",
-                "Enter GST Rate",
-                controller: _gstController,
-                keyboardType: TextInputType.number,
-                readOnly: _gstType == "same", // Editable only if "productwise"
-              ),
+            buildTextField("Product Name", "Enter Product Name",
+                controller: _nameController, errorText: _nameErrorText),
 
-            buildTextField("HSN Code", "Enter HSN Code", controller: _hsnController),
+            buildTextField("Price", "Enter Product Price",
+                controller: _priceController,
+                keyboardType: TextInputType.number,
+                errorText: _priceErrorText),
+
+            if (_isGstApplicable)
+              buildTextField("GST Rate(%)", "Enter GST Rate",
+                  controller: _gstController,
+                  keyboardType: TextInputType.number,
+                  readOnly: _gstType == "same",
+                  errorText: _gstErrorText),
+
+            buildTextField("HSN Code", "Enter HSN Code",
+                keyboardType: TextInputType.number,
+                controller: _hsnController),
           ],
         ),
       ),
@@ -136,39 +150,49 @@ class _ProductState extends State<Product> {
 }
 
 Widget buildTextField(String label, String hint,
-    {TextEditingController? controller, TextInputType? keyboardType, bool readOnly = false}) {
+    {TextEditingController? controller,
+      TextInputType? keyboardType,
+      bool readOnly = false,
+      String? errorText}) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: TextStyle(fontWeight: FontWeight.w600)),
+      Text(label,
+          style: TextStyle(
+              fontWeight: FontWeight.w600,
+              color: errorText != null ? Colors.red : Colors.black)),
       SizedBox(height: 5),
       Container(
         decoration: BoxDecoration(
           color: readOnly ? Colors.grey.shade200 : Colors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.shade200,
-              blurRadius: 5,
-              spreadRadius: 2,
-            ),
-          ],
+          border: Border.all(
+              color: errorText != null ? Colors.red : Colors.grey.shade300,
+              width: 1.5),
         ),
         child: TextField(
+          textCapitalization: TextCapitalization.sentences,
           controller: controller,
           keyboardType: keyboardType,
-          readOnly: readOnly, // Use readOnly instead of enabled
+          readOnly: readOnly,
           decoration: InputDecoration(
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             border: InputBorder.none,
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400),
+            hintStyle: TextStyle(
+                color: errorText != null ? Colors.red : Colors.grey.shade400),
           ),
         ),
       ),
+      if (errorText != null)
+        Padding(
+          padding: const EdgeInsets.only(top: 4, left: 4),
+          child: Text(errorText, style: TextStyle(color: Colors.red, fontSize: 12)),
+        ),
       SizedBox(height: 10),
     ],
   );
 }
+
+
 

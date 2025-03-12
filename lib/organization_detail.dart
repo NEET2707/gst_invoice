@@ -482,11 +482,11 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
                 SizedBox(
                   height: 10,
                 ),
-                buildTextField("Bank Details (Appear In Invoice Pdf)", "Bank Name\nAccount Number\nBank IFSC Code", controller: bankDetailsController, maxLines: 4),
+                buildTextField("Bank Details (Appear In Invoice Pdf)", "Bank Name\nAccount Number\nBank IFSC Code", controller: bankDetailsController, maxLines: 4, keyboardType: TextInputType.multiline),
                 SizedBox(
                   height: 10,
                 ),
-                buildTextField("Terms & Conditions (Appear In Invoice Pdf)", "Enter Terms & Conditions", controller: termsController, maxLines: 4),
+                buildTextField("Terms & Conditions (Appear In Invoice Pdf)", "Enter Terms & Conditions", controller: termsController, maxLines: 4, keyboardType: TextInputType.multiline),
 
               ],
 

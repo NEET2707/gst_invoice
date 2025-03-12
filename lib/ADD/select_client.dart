@@ -18,6 +18,7 @@ class _SelectClientState extends State<SelectClient> {
   List<Map<String, dynamic>> clients = [];
   List<Map<String, dynamic>> filteredClients = [];
   TextEditingController searchController = TextEditingController();
+  FocusNode searchFocusNode = FocusNode();
   Map<String, dynamic>? selectedClient;
   late bool back;
 
@@ -28,6 +29,8 @@ class _SelectClientState extends State<SelectClient> {
     fetchClients();
     back = widget.back;
     print("=======================$back");
+    searchController.addListener(() => setState(() {}));
+    searchFocusNode.addListener(() => setState(() {}));
   }
 
   Future<void> fetchClients() async {
@@ -59,6 +62,13 @@ class _SelectClientState extends State<SelectClient> {
   }
 
   @override
+  void dispose() {
+    searchController.dispose();
+    searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -68,19 +78,30 @@ class _SelectClientState extends State<SelectClient> {
       ),
       body: Column(
         children: [
-          // Search bar
+          // ✅ Fixed: Search Bar with Padding
           Padding(
             padding: const EdgeInsets.only(top: 5, bottom: 4, left: 5, right: 5),
             child: SizedBox(
-              height: 40, // Reduced height
+              height: 40,
               child: TextField(
                 controller: searchController,
+                focusNode: searchFocusNode,
                 onChanged: filterClients,
                 decoration: InputDecoration(
                   hintText: "Search",
-                  prefixIcon: const Icon(Icons.search, size: 20), // Optional: smaller icon
-                  isDense: true, // Reduces height
-                  contentPadding: const EdgeInsets.symmetric(vertical: 8), // Adjusts vertical padding
+                  prefixIcon: const Icon(Icons.search, size: 20),
+                  suffixIcon: searchFocusNode.hasFocus
+                      ? IconButton(
+                    icon: const Icon(Icons.clear, size: 20),
+                    onPressed: () {
+                      searchController.clear();
+                      filterClients('');
+                      FocusScope.of(context).unfocus(); // optional: hide keyboard
+                    },
+                  )
+                      : null,
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 8),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10.0),
                   ),
@@ -161,9 +182,10 @@ class _SelectClientState extends State<SelectClient> {
                           SizedBox(height: 2),
                           // Second row: State + GSTIN
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text("${client['client_contact']}                       ", style: TextStyle(fontSize: 11)),
-                              Text("${client['client_gstin']}", style: TextStyle(fontSize: 11)),
+                              Text("${client['client_contact']}", style: TextStyle(fontSize: 11)), // Left side
+                              Text("${client['client_gstin']}", style: TextStyle(fontSize: 11)), // Right side
                             ],
                           )
                         ],

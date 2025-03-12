@@ -28,6 +28,7 @@ class _InvoiceState extends State<Invoice> {
   TextEditingController dueDateController = TextEditingController();
   TextEditingController qtyController = TextEditingController();
   TextEditingController discountController = TextEditingController();
+  late bool isGstApplicable;
 
 
   Map<String, dynamic>? selectedClient;
@@ -135,8 +136,8 @@ class _InvoiceState extends State<Invoice> {
         'total_cgst': totalCGST,
         'total_sgst': totalSGST,
         'total_igst': totalIGST,
-        'taxable_amount': taxableAmount,
         'total_tax': totalGST,
+        'taxable_amount': taxableAmount,
         'total_amount': totalAmount,
         'invoic_date': invoiceDateController.text,
         'due_date': dueDateController.text,
@@ -224,8 +225,8 @@ class _InvoiceState extends State<Invoice> {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       companyName = prefs.getString('companyName') ?? "Not Available";
-      print("companyName");
       companyState = prefs.getString('companyState') ?? "Not Available";
+      isGstApplicable = (prefs.getInt("isGstApplicable") ?? 1) == 1;
     });
   }
 
@@ -283,7 +284,8 @@ class _InvoiceState extends State<Invoice> {
 
 
   double _getDiscountedTotal() {
-    double total = _getTotalPrice() + _getTotalGST();
+    double total = _getTotalPrice();
+    if (isGstApplicable) total += _getTotalGST();
     return total - ((_getTotalPrice() * discountPercentage) / 100);
   }
 
@@ -890,19 +892,21 @@ class _InvoiceState extends State<Invoice> {
               columns: [
                 DataColumn(
                   label: SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.4, // 40% width
+                    width: MediaQuery.of(context).size.width * 0.4,
                     child: Text("Product", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ),
                 DataColumn(
                   label: SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.2, // 20% width
-                    child: Text("GST", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    width: MediaQuery.of(context).size.width * 0.2,
+                    child: isGstApplicable
+                        ? Text("GST", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))
+                        : SizedBox(), // 👈 Placeholder header
                   ),
                 ),
                 DataColumn(
                   label: SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.2, // Consistent width for "Total"
+                    width: MediaQuery.of(context).size.width * 0.2,
                     child: Text("Total", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   ),
                 ),
@@ -915,23 +919,30 @@ class _InvoiceState extends State<Invoice> {
                 double gstRate = product['product_gst'];
                 double totalPrice = price * qty;
                 double gstAmount = totalPrice * gstRate / 100;
+                double finalAmount = isGstApplicable
+                    ? totalPrice + gstAmount
+                    : totalPrice;
                 bool isSameState = selectedClient != null &&
                     selectedClient!['client_state'] == companyState;
 
                 return DataRow(
                   cells: [
+                    // Product
                     DataCell(
                       SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.4, // 40% width
+                        width: MediaQuery.of(context).size.width * 0.4,
                         child: Text(
                           "${product['product_name']}\n$qty x ₹${price.toStringAsFixed(2)}",
                           style: TextStyle(fontSize: 12),
                         ),
                       ),
                     ),
-                    DataCell(
+
+                    // GST or empty placeholder
+                    isGstApplicable
+                        ? DataCell(
                       SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.2, // 20% width
+                        width: MediaQuery.of(context).size.width * 0.2,
                         child: Text.rich(
                           TextSpan(
                             children: [
@@ -949,22 +960,25 @@ class _InvoiceState extends State<Invoice> {
                           ),
                         ),
                       ),
-                    ),
+                    )
+                        : const DataCell(SizedBox()),
+
+                    // Total
                     DataCell(
                       SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.3, // 20% width
+                        width: MediaQuery.of(context).size.width * 0.3,
                         child: Row(
                           children: [
                             Expanded(
                               child: Text(
-                                "₹${(totalPrice + gstAmount).toStringAsFixed(2)}",
+                                "₹${finalAmount.toStringAsFixed(2)}",
                                 style: TextStyle(fontSize: 12),
                               ),
                             ),
                             PopupMenuButton<String>(
                               icon: Icon(Icons.more_vert, size: 20),
                               padding: EdgeInsets.zero,
-                              constraints: BoxConstraints(minWidth: 100), // Adjust constraints
+                              constraints: BoxConstraints(minWidth: 100),
                               onSelected: (String value) {
                                 if (value == 'edit') {
                                   _editProduct(context, index);
@@ -1044,7 +1058,8 @@ class _InvoiceState extends State<Invoice> {
           child: Column(
             children: [
               _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
-              _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
+              if (isGstApplicable)
+                _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
               _buildSummaryRow(
                 "Discount (${discountPercentage.toStringAsFixed(2)}%)",
                 "- ₹${(_getTotalPrice() * discountPercentage / 100).toStringAsFixed(2)}",
