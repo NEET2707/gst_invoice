@@ -148,7 +148,7 @@ class _SelectProductState extends State<SelectProduct> {
                     child: InkWell(
                       onTap: () {
                         if (widget.isyes == true)
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => Invoice(product: productList)));
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => Invoice(product: [product])));
                         else
                           Navigator.pop(context, product);
                       },
