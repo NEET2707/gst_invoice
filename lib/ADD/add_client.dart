@@ -131,7 +131,7 @@ class _AddClientState extends State<AddClient> {
       Map<String, dynamic> clientData = {
         'client_company': companyNameController.text.trim(),
         'client_gstin': gstinController.text.trim(),
-        'client_contact': int.tryParse(contactController.text) ?? 0,
+        'client_contact': int.tryParse(contactController.text) ?? "",
         'client_address': addressController.text.trim(),
         'client_state': selectedState,
       };
@@ -182,7 +182,7 @@ class _AddClientState extends State<AddClient> {
               buildTextField("Client / Company Name", "Enter Name", controller: companyNameController, showError: isCompanyNameEmpty),
               buildTextField(
                 "GSTIN",
-                "Enter GST Number",
+                "Enter GST Number(27AAAPA1234A1Z5)",
                 controller: gstinController,
                 showError: isGstinEmpty,
                 errorMessage: gstinController.text.trim().isEmpty

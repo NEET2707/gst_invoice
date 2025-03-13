@@ -1,5 +1,5 @@
 import 'dart:io';
-
+import 'package:flutter/services.dart';
 import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:gst_invoice/color.dart';
@@ -37,6 +37,14 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
   bool isGstRateEmpty = false;
   bool temp = false;
   XFile? _pickedImage;
+  bool isGstinEmpty = false;
+
+
+
+  bool isGstinValid(String gstin) {
+    final pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$';
+    return RegExp(pattern).hasMatch(gstin);
+  }
 
   @override
   void initState() {
@@ -145,6 +153,7 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
     setState(() {
       isCompanyNameEmpty = companyNameController.text.isEmpty;
       isStateEmpty = selectedState == null;
+      isGstinEmpty = gstNumberController.text.trim().isEmpty || !isGstinValid(gstNumberController.text.trim());
       isGstRateEmpty = isGstApplicable && gstRateController.text.isEmpty;
     });
 
@@ -268,7 +277,19 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
     );
   }
 
-  Widget buildTextField(String label, String hint, {TextEditingController? controller, TextInputType? keyboardType, bool isRequired = false, bool showError = false, bool istype = false, int? maxLines}) {
+  Widget buildTextField(
+      String label,
+      String hint, {
+        TextEditingController? controller,
+        TextInputType? keyboardType,
+        bool isRequired = false,
+        bool showError = false,
+        bool istype = false,
+        int? maxLines,
+        String? errorMessage,
+        List<TextInputFormatter>? inputFormatters,
+      }) {
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -297,6 +318,7 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
             ],
           ),
           child: TextField(
+            textCapitalization: TextCapitalization.sentences,
             controller: controller,
             enabled: !istype,
             readOnly: istype,
@@ -424,9 +446,29 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
                 ),
 
                 if (gstType == "same") ...[
-                  buildTextField("GST Rate(%)", "GST(%)", controller: gstRateController, keyboardType: TextInputType.number,showError: isGstRateEmpty,istype: true),
+                  buildTextField(
+                    "GST Rate(%)",
+                    "GST(%)",
+                    controller: gstRateController,
+                    keyboardType: TextInputType.number,
+                    showError: isGstRateEmpty,
+                    istype: false, // 👈 This makes the field read-only
+                  ),
                 ],
-                buildTextField("GSTIN", "Enter Your GST Number", controller: gstNumberController),
+                buildTextField(
+                  "GSTIN",
+                  "Enter GST Number (27AAAPA1234A1Z5)",
+                  controller: gstNumberController,
+                  keyboardType: TextInputType.text,
+                  showError: isGstinEmpty,
+                  errorMessage: gstNumberController.text.trim().isEmpty
+                      ? "*This field is required"
+                      : "*Enter valid GSTIN (15 characters)",
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9A-Z]')),
+                    LengthLimitingTextInputFormatter(15),
+                  ],
+                ),
               ],
 
               buildDropdownField("Default Customer State", "Select State", selectedCustomerState, (value) {

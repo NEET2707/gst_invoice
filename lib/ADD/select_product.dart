@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gst_invoice/ADD/product.dart';
 import 'package:gst_invoice/DATABASE/database_helper.dart'; // Import Database Helper
+import 'package:shared_preferences/shared_preferences.dart';
 import '../color.dart';
 import 'invoice.dart';
 
@@ -35,15 +36,31 @@ class _SelectProductState extends State<SelectProduct> {
   }
 
   Future<void> fetchProducts() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool isGstApplicable = (prefs.getInt("isGstApplicable") ?? 0) == 1;
+    String gstType = prefs.getString("gstType") ?? "same";
+    String gstRate = prefs.getString("gstRate") ?? "18";
+
     final data = await DatabaseHelper().getProducts();
+
     setState(() {
-      productList = data;
-      print("+++++++++++++++++++++++++++++++++++");
-      print(productList);
-      product = List.from(productList); // Ensures `product` gets a fresh copy
-      filteredProducts = List.from(productList); // Rename and ensure consistency
+      productList = data.map((product) {
+        if (isGstApplicable && gstType == "same") {
+          // Override GST rate dynamically
+          return {
+            ...product,
+            'product_gst': double.tryParse(gstRate) ?? 18.0,
+          };
+        } else {
+          return product;
+        }
+      }).toList();
+
+      product = List.from(productList);
+      filteredProducts = List.from(productList);
     });
   }
+
 
   void filterProduct(String query) {
     setState(() {
@@ -148,7 +165,12 @@ class _SelectProductState extends State<SelectProduct> {
                     child: InkWell(
                       onTap: () {
                         if (widget.isyes == true)
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => Invoice(product: [product])));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Invoice(product: [{...product, 'qty': 1}]), // 👈 Add qty here
+                            ),
+                          );
                         else
                           Navigator.pop(context, product);
                       },

@@ -175,21 +175,27 @@ class _GstInvoiceState extends State<GstInvoice>{
 
   // ✅ Move this function OUTSIDE the `build` method
   Widget _buildNavItem(IconData icon, String label, int index) {
-    return GestureDetector(
-      onTap: () => setState(() => _selectedIndex = index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: _selectedIndex == index ? themecolor : Colors.grey),
-          SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              color: _selectedIndex == index ? themecolor : Colors.grey,
-            ),
+    return Expanded(
+      child: InkWell(
+        onTap: () => setState(() => _selectedIndex = index),
+        child: SizedBox(
+          height: double.infinity, // make it take full height of BottomAppBar
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center, // center vertically
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 20, color: _selectedIndex == index ? themecolor : Colors.grey),
+              SizedBox(height: 2),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _selectedIndex == index ? themecolor : Colors.grey,
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

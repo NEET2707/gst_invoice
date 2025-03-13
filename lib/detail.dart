@@ -177,6 +177,10 @@ class _DetailState extends State<Detail> {
       imageBytes = base64Decode(invoiceDetails!['company_logo']);
     }
 
+    bool hasHSN = productList.any((product) =>
+    product['product_hsn'] != null && product['product_hsn'].toString().trim().isNotEmpty);
+
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -331,24 +335,30 @@ class _DetailState extends State<Detail> {
                         ),
                       ),
 
+
                       pw.Expanded(
                         flex: 1,
                         child: pw.Table(
                           border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
-                          columnWidths: {
+                          columnWidths: hasHSN
+                              ? {
                             0: pw.FlexColumnWidth(3),
                             1: pw.FlexColumnWidth(2),
                             2: pw.FlexColumnWidth(2),
-                            // 3: pw.FlexColumnWidth(2),
+                          }
+                              : {
+                            0: pw.FlexColumnWidth(2),
+                            1: pw.FlexColumnWidth(2),
                           },
                           children: [
                             pw.TableRow(
                               decoration: pw.BoxDecoration(color: PdfColors.grey300),
                               children: [
-                                pw.Padding(
-                                  padding: pw.EdgeInsets.all(8),
-                                  child: pw.Text("HSN", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                                ),
+                                if (hasHSN)
+                                  pw.Padding(
+                                    padding: pw.EdgeInsets.all(8),
+                                    child: pw.Text("HSN", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                                  ),
                                 pw.Padding(
                                   padding: pw.EdgeInsets.all(8),
                                   child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
@@ -363,17 +373,18 @@ class _DetailState extends State<Detail> {
                               final product = productList[index];
                               return pw.TableRow(
                                 children: [
+                                  if (hasHSN)
+                                    pw.Padding(
+                                      padding: pw.EdgeInsets.all(8),
+                                      child: pw.Text("${product['product_hsn'] ?? ''}"),
+                                    ),
                                   pw.Padding(
                                     padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${product['product_hsn']}"),
+                                    child: pw.Text("${product['qty'] ?? '0'}"),
                                   ),
                                   pw.Padding(
                                     padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${product['qty'] ?? '0'}"), // Ensure a default value if null
-                                  ),
-                                  pw.Padding(
-                                    padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${product['product_price']}"),
+                                    child: pw.Text("${product['product_price'] ?? ''}"),
                                   ),
                                 ],
                               );
@@ -381,6 +392,7 @@ class _DetailState extends State<Detail> {
                           ],
                         ),
                       ),
+
                     ],
                   ),
 
@@ -391,10 +403,10 @@ class _DetailState extends State<Detail> {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       // Right Side: Terms & Conditions (50% width)
-                      if (bankDetailsController!.isNotEmpty)
+
                         pw.Expanded(
                           flex: 1,
-                          child: pw.Container(
+                          child: bankDetailsController!.isNotEmpty ?  pw.Container(
                             height: 150,
                             decoration: pw.BoxDecoration(border: pw.Border.all(width: 1, color: PdfColors.grey)),
                             padding: pw.EdgeInsets.all(8),
@@ -406,7 +418,7 @@ class _DetailState extends State<Detail> {
                                 pw.Text(bankDetailsController.toString(), style: pw.TextStyle(fontSize: 12)),
                               ],
                             ),
-                          ),
+                          ) : pw.SizedBox(),
                         ),
 
 
@@ -771,7 +783,11 @@ class _DetailState extends State<Detail> {
         children: productList.map((product) {
           double price = product['product_price'] ?? 0.0;
           int qty = int.tryParse(product['qty'].toString()) ?? 1;
-          double taxableAmount = product['taxableAmount'] ?? 0.0;
+          print("55555555555555555555555555555555");
+          print(product);
+          print(qty);
+          double taxableAmount = product['taxableAmount'] ?? (price * qty);
+          print(taxableAmount);
 
           return Padding(
             padding: const EdgeInsets.all(12),

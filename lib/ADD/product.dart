@@ -31,14 +31,28 @@ class _ProductState extends State<Product> {
   @override
   void initState() {
     super.initState();
-    _loadGstPreference();
+    _initializeProductPage(); // this handles async logic
+  }
+
+  Future<void> _initializeProductPage() async {
+    await _loadGstPreference(); // Load GST settings from SharedPreferences
+
     if (widget.product != null) {
       productId = widget.product!['product_id'];
       _nameController.text = widget.product!['product_name'];
       _priceController.text = widget.product!['product_price'].toString();
-      _gstController.text = widget.product!['product_gst'].toString();
       _hsnController.text = widget.product!['product_hsn'];
+
+      if (_gstType == "product") {
+        _gstController.text = widget.product!['product_gst'].toString();
+      } else {
+        SharedPreferences prefs = await SharedPreferences.getInstance();
+        _gstController.text = prefs.getString("gstRate") ?? "18";
+      }
     }
+
+    // Ensure UI is updated
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadGstPreference() async {
@@ -48,7 +62,7 @@ class _ProductState extends State<Product> {
       _gstType = prefs.getString("gstType") ?? "same";
 
       if (_gstType == "same") {
-        _gstController.text = "18"; // Fixed GST rate for all products
+        _gstController.text = prefs.getString("gstRate") ?? "18";
       }
     });
   }
@@ -136,7 +150,7 @@ class _ProductState extends State<Product> {
               buildTextField("GST Rate(%)", "Enter GST Rate",
                   controller: _gstController,
                   keyboardType: TextInputType.number,
-                  readOnly: _gstType == "same",
+                  readOnly: false,
                   errorText: _gstErrorText),
 
             buildTextField("HSN Code", "Enter HSN Code",

@@ -28,7 +28,7 @@ class _InvoiceState extends State<Invoice> {
   TextEditingController dueDateController = TextEditingController();
   TextEditingController qtyController = TextEditingController();
   TextEditingController discountController = TextEditingController();
-  late bool isGstApplicable;
+  bool isGstApplicable = true; // or false as default depending on your app logic
 
 
   Map<String, dynamic>? selectedClient;
@@ -422,8 +422,39 @@ class _InvoiceState extends State<Invoice> {
     if (result == true) {
       _loadCompanyDetails();  // ✅ Reload data when coming back
     }
-
   }
+
+  List<Widget> _buildGSTBreakdownRows() {
+    bool isSameState = selectedClient != null &&
+        selectedClient!['client_state'] == companyState;
+
+    double totalGST = _getTotalGST();
+    double totalGstRate = 0;
+
+    // Calculate average GST rate based on products
+    if (selectedProducts.isNotEmpty) {
+      totalGstRate = selectedProducts
+          .map((p) => p['product_gst'] ?? 0)
+          .reduce((a, b) => a + b) /
+          selectedProducts.length;
+    }
+
+    double cgst = isSameState ? totalGST / 2 : 0;
+    double sgst = isSameState ? totalGST / 2 : 0;
+    double igst = isSameState ? 0 : totalGST;
+
+    List<Widget> rows = [];
+
+    if (isSameState) {
+      rows.add(_buildSummaryRow("CGST (${(totalGstRate / 2).toStringAsFixed(2)}%)", "₹${cgst.toStringAsFixed(2)}"));
+      rows.add(_buildSummaryRow("SGST (${(totalGstRate / 2).toStringAsFixed(2)}%)", "₹${sgst.toStringAsFixed(2)}"));
+    } else {
+      rows.add(_buildSummaryRow("IGST (${totalGstRate.toStringAsFixed(2)}%)", "₹${igst.toStringAsFixed(2)}"));
+    }
+
+    return rows;
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -500,149 +531,6 @@ class _InvoiceState extends State<Invoice> {
                 _buildSection(
                   title: "Items Details",
                   child: _buildItemTable(),
-                  // Column(
-                  //   children: [
-                  //     // "Clear All Items" Button
-                  //     if (selectedProducts.isNotEmpty)
-                  //       GestureDetector(
-                  //         onTap: () {
-                  //           setState(() {
-                  //             selectedProducts.clear();
-                  //           });
-                  //         },
-                  //         child: const Text(
-                  //           "Clear all Items",
-                  //           style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                  //         ),
-                  //       ),
-                  //     const SizedBox(height: 8),
-                  //
-                  //
-                  //     ListView.builder(
-                  //       shrinkWrap: true,
-                  //       physics: const NeverScrollableScrollPhysics(),
-                  //       itemCount: selectedProducts.length,
-                  //       itemBuilder: (context, index) {
-                  //         var product = selectedProducts[index];
-                  //
-                  //         // Get product details
-                  //         double price = product['product_price'];
-                  //         int qty = product['qty'] ?? 1;
-                  //         double gstRate = product['product_gst'];
-                  //
-                  //         // Calculate new total price based on quantity
-                  //         double totalPrice = price * qty;
-                  //         double gstAmount = totalPrice * gstRate / 100;
-                  //
-                  //         // Determine if IGST or CGST & SGST should be applied
-                  //         bool isSameState = selectedClient != null &&
-                  //             selectedClient!['client_state'] == companyState;
-                  //
-                  //         return ListTile(
-                  //           title: Center(
-                  //             child: Text(
-                  //               product['product_name'],
-                  //               style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 25),
-                  //             ),
-                  //           ),
-                  //           subtitle: Column(
-                  //             crossAxisAlignment: CrossAxisAlignment.start,
-                  //             children: [
-                  //               Row(
-                  //                 children: [
-                  //                   // Remove Product Button
-                  //                   IconButton(
-                  //                     icon: const Icon(Icons.remove_circle, color: Colors.red),
-                  //                     onPressed: () {
-                  //                       setState(() {
-                  //                         selectedProducts.removeAt(index);
-                  //                       });
-                  //                     },
-                  //                   ),
-                  //                   // Edit Product Button
-                  //                   IconButton(
-                  //                     icon: const Icon(Icons.edit, color: Colors.blue),
-                  //                     onPressed: () {
-                  //                       _editProduct(context, index);
-                  //                     },
-                  //                   ),
-                  //                   // Quantity & Price
-                  //                   Text(
-                  //                     "$qty X ₹${price.toStringAsFixed(2)}",
-                  //                     style: const TextStyle(fontWeight: FontWeight.bold),
-                  //                   ),
-                  //                 ],
-                  //               ),
-                  //               // GST Details
-                  //               if (isSameState) ...[
-                  //                 Text("CGST: ₹${(gstAmount / 2).toStringAsFixed(2)} (${(gstRate / 2).toStringAsFixed(2)}%)"),
-                  //                 Text("SGST: ₹${(gstAmount / 2).toStringAsFixed(2)} (${(gstRate / 2).toStringAsFixed(2)}%)"),
-                  //               ] else ...[
-                  //                 Text("IGST: ₹${gstAmount.toStringAsFixed(2)} (${gstRate.toStringAsFixed(2)}%)"),
-                  //               ],
-                  //               // Updated Total Price
-                  //               Text(
-                  //                 "Total: ₹${(totalPrice + gstAmount).toStringAsFixed(2)}",
-                  //                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                  //               ),
-                  //             ],
-                  //           ),
-                  //         );
-                  //       },
-                  //     ),
-                  //
-                  //     const SizedBox(height: 10),
-                  //
-                  //     // Add Item Button
-                  //     GestureDetector(
-                  //       onTap: _selectProduct,
-                  //       child: _buildAddButton("Add Item", FontAwesomeIcons.plusCircle, Colors.green),
-                  //     ),
-                  //
-                  //     const SizedBox(height: 10),
-                  //
-                  //     // Discount Option (if needed)
-                  //     GestureDetector(
-                  //       onTap: () => _applyDiscount(context),
-                  //       child: const Text("Add a Discount", style: TextStyle(color: Colors.blue)),
-                  //     ),
-                  //
-                  //     const SizedBox(height: 10),
-                  //
-                  //     // Total Calculation Section
-                  //     Padding(
-                  //       padding: const EdgeInsets.all(10.0),
-                  //       child: Column(
-                  //         crossAxisAlignment: CrossAxisAlignment.start,
-                  //         children: [
-                  //           _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
-                  //           _buildSummaryRow(
-                  //             "$discountPercentage% Discount",
-                  //             "- ₹${(_getTotalPrice() ) * discountPercentage / 100}",
-                  //             isBold: true,
-                  //             isHighlighted: true,
-                  //           ),
-                  //           if (_getTotalGST() > 0)
-                  //             _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
-                  //           _buildSummaryRow(
-                  //             "Total Amount",
-                  //             // "- ₹${((_getTotalPrice() ) * discountPercentage / 100) + _getTotalGST()}",
-                  //             "₹${(_getTotalPrice() + _getTotalGST()).toStringAsFixed(2)}",
-                  //             isBold: true,
-                  //             isHighlighted: true,
-                  //           ),
-                  //
-                  //           _buildSummaryRow(
-                  //             "Total Amount (After Discount)",
-                  //             "₹${_getDiscountedTotal().toStringAsFixed(2)}",
-                  //             isBold: true,
-                  //             isHighlighted: true,
-                  //           ),
-                  //         ],
-                  //       ),
-                  //     ),
-                  //   ],
-                  // ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -697,67 +585,6 @@ class _InvoiceState extends State<Invoice> {
               Text("${selectedClient!['client_contact']}"),
           ],
         ),
-        // trailing: PopupMenuButton<String>(
-        //   icon: const Icon(Icons.more_vert, color: Colors.black54),
-        //   onSelected: (value) async {
-        //     if (value == 'edit') {
-        //       bool? result = await Navigator.push(
-        //         context,
-        //         MaterialPageRoute(
-        //           builder: (context) => AddClient(clientData: selectedClient),
-        //         ),
-        //       );
-        //
-        //       if (result == true) {
-        //         setState(() {}); // Refresh UI after editing
-        //       }
-        //     } else if (value == 'delete') {
-        //       showDialog(
-        //         context: context,
-        //         builder: (context) => AlertDialog(
-        //           title: const Text("Delete Client"),
-        //           content: const Text("Are you sure you want to delete this client?"),
-        //           actions: [
-        //             TextButton(
-        //               onPressed: () => Navigator.pop(context),
-        //               child: const Text("Cancel"),
-        //             ),
-        //             TextButton(
-        //               onPressed: () {
-        //                 deleteClient(selectedClient!['id']);
-        //                 Navigator.pop(context);
-        //                 setState(() {}); // Refresh UI after deletion
-        //               },
-        //               child: const Text("Delete", style: TextStyle(color: Colors.red)),
-        //             ),
-        //           ],
-        //         ),
-        //       );
-        //     }
-        //   },
-        //   itemBuilder: (context) => [
-        //     PopupMenuItem(
-        //       value: 'edit',
-        //       child: Row(
-        //         children: [
-        //           Icon(Icons.edit, color: Colors.blue),
-        //           SizedBox(width: 8),
-        //           Text("Edit"),
-        //         ],
-        //       ),
-        //     ),
-        //     PopupMenuItem(
-        //       value: 'delete',
-        //       child: Row(
-        //         children: [
-        //           Icon(Icons.delete, color: Colors.red),
-        //           SizedBox(width: 8),
-        //           Text("Delete"),
-        //         ],
-        //       ),
-        //     ),
-        //   ],
-        // ),
       );
     }
   }
@@ -948,12 +775,12 @@ class _InvoiceState extends State<Invoice> {
                             children: [
                               TextSpan(
                                 text: isSameState
-                                    ? "₹${(gstAmount / 2).toStringAsFixed(2)}"
+                                    ? "₹${(gstAmount / 2).toStringAsFixed(2)}\n"
                                     : "₹${gstAmount.toStringAsFixed(2)}\n",
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                               ),
                               TextSpan(
-                                text: isSameState ? "" : "(IGST)",
+                                text: isSameState ? "(CGST,SGST)" : "(IGST)",
                                 style: const TextStyle(fontSize: 12),
                               ),
                             ],
@@ -1059,7 +886,8 @@ class _InvoiceState extends State<Invoice> {
             children: [
               _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
               if (isGstApplicable)
-                _buildSummaryRow("Total GST", "₹${_getTotalGST().toStringAsFixed(2)}"),
+                if (isGstApplicable)
+                  ..._buildGSTBreakdownRows(),
               _buildSummaryRow(
                 "Discount (${discountPercentage.toStringAsFixed(2)}%)",
                 "- ₹${(_getTotalPrice() * discountPercentage / 100).toStringAsFixed(2)}",
