@@ -45,7 +45,26 @@ class _DetailState extends State<Detail> {
     fetchProducts(); // Fetch products
     _loadCompanyDetails();
     _loadGstPreference();
+    getPreference();
+    getGstStatus();
   }
+
+  void getGstStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    int gstFlag = prefs.getInt('isGstApplicable') ?? 0;
+    setState(() {
+      isGstApplicable = gstFlag == 1;
+    });
+  }
+
+  void getPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    int gstPref = prefs.getInt('isGstApplicable') ?? 1;
+    isGstApplicable = gstPref == 1;
+    print("GST Applicable: $isGstApplicable"); // ✅ Debug print
+    setState(() {});
+  }
+
 
   Future<void> _loadGstPreference() async {
     final prefs = await SharedPreferences.getInstance();
@@ -117,16 +136,37 @@ class _DetailState extends State<Detail> {
       product.product_gst, 
       product.product_hsn, 
       invoice_line.qty,
+      invoice_line.price,
       (invoice_line.price * invoice_line.qty) AS taxableAmount
     FROM invoice_line
     INNER JOIN product ON invoice_line.product_id = product.product_id
     WHERE invoice_line.invoice_id = ?
   ''', [widget.invoiceId]);
 
+    final invoice = invoiceDetails; // already fetched earlier
+    final bool isSameState = (invoice?['is_equal_state'] == 1); // true → CGST + SGST, false → IGST
+
     setState(() {
-      productList = results;
+      productList = results.map((item) {
+        double price = item['price'] ?? 0.0;
+        int qty = item['qty'] ?? 1;
+        double taxableAmount = price * qty;
+        double gstRate = item['product_gst'] ?? 0.0;
+        double gstAmount = taxableAmount * gstRate / 100;
+
+        return {
+          'product_name': item['product_name'],
+          'product_price': price,
+          'qty': qty,
+          'taxableAmount': taxableAmount,
+          'gst_rate': gstRate,
+          'gst_amount': gstAmount,
+          'gst_type': isSameState ? "CGST_SGST" : "IGST",
+        };
+      }).toList();
     });
   }
+
 
   void _loadCompanyDetails() async {
     final dbHelper = DatabaseHelper();
@@ -291,108 +331,126 @@ class _DetailState extends State<Detail> {
               pw.Column(
                 children: [
                   // Table divided into two parts
-                  pw.Row(
+                  pw.Table(
+                    border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
+                    columnWidths: hasHSN
+                        ? {
+                      0: pw.FlexColumnWidth(1), // S No
+                      1: pw.FlexColumnWidth(4), // Item Description
+                      2: pw.FlexColumnWidth(2), // HSN
+                      3: pw.FlexColumnWidth(1), // Qty
+                      4: pw.FlexColumnWidth(2), // Price
+                      5: pw.FlexColumnWidth(2), // Taxable
+                      6: pw.FlexColumnWidth(2), // GST
+                      7: pw.FlexColumnWidth(2), // Amount
+                    }
+                        : {
+                      0: pw.FlexColumnWidth(1), // S No
+                      1: pw.FlexColumnWidth(4), // Item Description
+                      2: pw.FlexColumnWidth(1), // Qty
+                      3: pw.FlexColumnWidth(2), // Price
+                      4: pw.FlexColumnWidth(2), // Taxable
+                      5: pw.FlexColumnWidth(2), // GST
+                      6: pw.FlexColumnWidth(2), // Amount
+                    },
                     children: [
-                      // Left Part (S. No & Item Description)
-                      pw.Expanded(
-                        flex: 1,
-                        child: pw.Table(
-                          border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
-                          columnWidths: {
-                            0: pw.FlexColumnWidth(1),
-                            1: pw.FlexColumnWidth(4),
-                          },
-                          children: [
-                            pw.TableRow(
-                              decoration: pw.BoxDecoration(color: PdfColors.grey300),
-                              children: [
-                                pw.Padding(
-                                  padding: pw.EdgeInsets.all(8),
-                                  child: pw.Text("S No", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                                ),
-                                pw.Padding(
-                                  padding: pw.EdgeInsets.all(8),
-                                  child: pw.Text("Item Description", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                                ),
-                              ],
+                      // Header Row
+                      pw.TableRow(
+                        decoration: pw.BoxDecoration(color: PdfColors.grey300),
+                        children: [
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text("S No", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text("Item Description", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          if (hasHSN)
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text("HSN", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
                             ),
-                            ...List.generate(productList.length, (index) {
-                              final product = productList[index];
-                              return pw.TableRow(
-                                children: [
-                                  pw.Padding(
-                                    padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${index + 1}"),
-                                  ),
-                                  pw.Padding(
-                                    padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text(product['product_name'] ?? 'N/A'),
-                                  ),
-                                ],
-                              );
-                            }),
-                          ],
-                        ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text("Taxable Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text("GST", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                          pw.Padding(
+                            padding: pw.EdgeInsets.all(8),
+                            child: pw.Text("Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                          ),
+                        ],
                       ),
 
+                      // Product Rows
+                      ...List.generate(productList.length, (index) {
+                        final product = productList[index];
+                        final price = (product['taxableAmount'] ?? 0) as num;
+                        final gstAmount = (product['gst_amount'] ?? 0) as num;
+                        final total = price + gstAmount;
 
-                      pw.Expanded(
-                        flex: 1,
-                        child: pw.Table(
-                          border: pw.TableBorder.all(width: 1, color: PdfColors.grey),
-                          columnWidths: hasHSN
-                              ? {
-                            0: pw.FlexColumnWidth(3),
-                            1: pw.FlexColumnWidth(2),
-                            2: pw.FlexColumnWidth(2),
-                          }
-                              : {
-                            0: pw.FlexColumnWidth(2),
-                            1: pw.FlexColumnWidth(2),
-                          },
+                        return pw.TableRow(
                           children: [
-                            pw.TableRow(
-                              decoration: pw.BoxDecoration(color: PdfColors.grey300),
-                              children: [
-                                if (hasHSN)
-                                  pw.Padding(
-                                    padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("HSN", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                                  ),
-                                pw.Padding(
-                                  padding: pw.EdgeInsets.all(8),
-                                  child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                                ),
-                                pw.Padding(
-                                  padding: pw.EdgeInsets.all(8),
-                                  child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-                                ),
-                              ],
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text("${index + 1}"),
                             ),
-                            ...List.generate(productList.length, (index) {
-                              final product = productList[index];
-                              return pw.TableRow(
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(product['product_name'] ?? 'N/A'),
+                            ),
+                            if (hasHSN)
+                              pw.Padding(
+                                padding: pw.EdgeInsets.all(8),
+                                child: pw.Text("${product['product_hsn'] ?? ''}"),
+                              ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text("${product['qty'] ?? '0'}"),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text("${product['product_price'] ?? ''}"),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text("${product['taxableAmount'] ?? ''}"),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Column(
+                                crossAxisAlignment: pw.CrossAxisAlignment.start,
                                 children: [
-                                  if (hasHSN)
-                                    pw.Padding(
-                                      padding: pw.EdgeInsets.all(8),
-                                      child: pw.Text("${product['product_hsn'] ?? ''}"),
-                                    ),
-                                  pw.Padding(
-                                    padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${product['qty'] ?? '0'}"),
-                                  ),
-                                  pw.Padding(
-                                    padding: pw.EdgeInsets.all(8),
-                                    child: pw.Text("${product['product_price'] ?? ''}"),
-                                  ),
+                                  if (product['gst_type'] == "CGST_SGST") ...[
+                                    pw.Text("${((gstAmount) / 2).toStringAsFixed(2)}"),
+                                    pw.Text("${((gstAmount) / 2).toStringAsFixed(2)}"),
+                                  ] else
+                                    pw.Text("${gstAmount.toStringAsFixed(2)}"),
                                 ],
-                              );
-                            }),
+                              ),
+                            ),
+                            pw.Padding(
+                              padding: pw.EdgeInsets.all(8),
+                              child: pw.Text(
+                                "${total.toStringAsFixed(2)}",
+                                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                              ),
+                            ),
                           ],
-                        ),
-                      ),
-
+                        );
+                      }),
                     ],
                   ),
 
@@ -778,45 +836,93 @@ class _DetailState extends State<Detail> {
 
   Widget _buildProductsList() {
     return _buildSection(
-      title: "Available Products",
+      title: "Items Details",
       child: Column(
         children: productList.map((product) {
+          print("PRODUCT: $product"); // Debug print
+
           double price = product['product_price'] ?? 0.0;
           int qty = int.tryParse(product['qty'].toString()) ?? 1;
-          print("55555555555555555555555555555555");
-          print(product);
-          print(qty);
           double taxableAmount = product['taxableAmount'] ?? (price * qty);
-          print(taxableAmount);
+          double gstRate = product['gst_rate']?.toDouble() ?? 0.0;
+          double gstAmount = product['gst_amount']?.toDouble() ?? 0.0;
+          String gstType = product['gst_type'] ?? '';
+
+          print("GST Applicable: $isGstApplicable, GST Rate: $gstRate, GST Amount: $gstAmount, GST Type: $gstType");
 
           return Padding(
             padding: const EdgeInsets.all(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  flex: 2, // Adjust as needed
-                  child: Text(
-                    "${product['product_name']}",
-                    style: TextStyle(fontWeight: FontWeight.w500,fontSize: 18),
-                    overflow: TextOverflow.ellipsis, // Prevents overflow
-                    softWrap: false, // Keeps text in one line
-                  ),
+                // Line 1: Product name + Price X Qty + Taxable amount
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        "${product['product_name']}",
+                        style: TextStyle(fontWeight: FontWeight.w500, fontSize: 18),
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text("${price.toStringAsFixed(2)} X $qty"),
+                          Text(
+                            "${taxableAmount.toStringAsFixed(0)}",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  flex: 1,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end, // Align text to the right
+
+                // Line 2: GST breakdown (if applicable)
+                if (isGstApplicable && gstRate > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (gstType == "CGST_SGST") ...[
+                          Text(
+                            "CGST : ${(gstAmount / 2).toStringAsFixed(0)} (${(gstRate / 2).toStringAsFixed(1)}%)",
+                            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                          ),
+                          Text(
+                            "SGST : ${(gstAmount / 2).toStringAsFixed(0)} (${(gstRate / 2).toStringAsFixed(1)}%)",
+                            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                          ),
+                        ] else ...[
+                          Text(
+                            "$gstType : ${gstAmount.toStringAsFixed(0)} (${gstRate.toStringAsFixed(0)}%)",
+                            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                // Line 3: Total (taxable + gst)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Text("${price.toStringAsFixed(2)} X $qty"),
                       Text(
-                        "${taxableAmount.toStringAsFixed(2)}",
+                        "${(taxableAmount + gstAmount).toStringAsFixed(0)}",
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                ),
+                )
               ],
             ),
           );
