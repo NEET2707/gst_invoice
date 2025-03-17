@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gst_invoice/color.dart';
-import 'package:gst_invoice/ADD/select_client.dart';
+import 'package:gst_invoice/ADD/client/select_client.dart';
 import 'package:gst_invoice/ADD/select_product.dart';
 import 'package:gst_invoice/organization_detail.dart';
 import 'package:share_plus/share_plus.dart';
@@ -64,7 +64,7 @@ class _SettingsState extends State<Settings> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) =>  SelectClient(back: true,)),
+                MaterialPageRoute(builder: (context) =>  SelectClient(pass: true, back: true)),
               );
             },
           ),

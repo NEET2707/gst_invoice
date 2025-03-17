@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ADD/invoice.dart';
-import 'ADD/select_client.dart';
+import 'ADD/client/select_client.dart';
 import 'ADD/select_product.dart';
 import 'DATABASE/database_helper.dart';
 import 'detail.dart';

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:gst_invoice/Report/partywisereportpage.dart';
 import 'package:gst_invoice/Report/productwisereportpage.dart';
 
+import 'gst_report.dart';
+
 class ReportPage extends StatefulWidget {
   const ReportPage({super.key});
 
@@ -41,6 +43,17 @@ class _ReportPageState extends State<ReportPage> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => Partywisereportpage()),
+                );              },
+            ),
+            const SizedBox(height: 30),
+            _buildReportCard(
+              context,
+              icon: Icons.person,
+              title: 'GST Report',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => GstReport()),
                 );              },
             ),
           ],

@@ -448,6 +448,57 @@ class DatabaseHelper {
   }
 
 
+
+  static Future<Map<String, double>> getMonthlyGstReport(DateTime selectedDate) async {
+    final db = await getDatabase();
+
+    String month = selectedDate.month.toString().padLeft(2, '0');
+    String year = selectedDate.year.toString();
+
+    final result = await db.rawQuery('''
+    SELECT 
+      SUM(total_cgst) as total_cgst,
+      SUM(total_sgst) as total_sgst,
+      SUM(total_igst) as total_igst
+    FROM invoice
+    WHERE substr(date_added, 6, 2) = ? AND substr(date_added, 1, 4) = ?
+  ''', [month, year]);
+
+    if (result.isNotEmpty) {
+      return {
+        'cgst': (result[0]['total_cgst'] ?? 0.0) as double,
+        'sgst': (result[0]['total_sgst'] ?? 0.0) as double,
+        'igst': (result[0]['total_igst'] ?? 0.0) as double,
+      };
+    }
+
+    return {'cgst': 0.0, 'sgst': 0.0, 'igst': 0.0};
+  }
+
+  static Future<List<Map<String, dynamic>>> getGstInvoicesByMonth(DateTime selectedDate) async {
+    final db = await getDatabase();
+
+    String month = selectedDate.month.toString().padLeft(2, '0');
+    String year = selectedDate.year.toString();
+
+    return await db.rawQuery('''
+    SELECT 
+      i.invoice_id,
+      i.date_added,
+      i.taxable_amount,
+      i.total_amount,
+      i.total_cgst,
+      i.total_sgst,
+      i.total_igst,
+      c.client_company
+    FROM invoice i
+    JOIN client c ON i.client_id = c.client_id
+    WHERE substr(i.date_added, 6, 2) = ? AND substr(i.date_added, 1, 4) = ?
+    ORDER BY i.date_added
+  ''', [month, year]);
+  }
+
+
 }
 
 

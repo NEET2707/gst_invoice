@@ -2,8 +2,8 @@ import 'package:dropdown_search/dropdown_search.dart';
 import 'package:flutter/material.dart';
 import 'package:gst_invoice/color.dart';
 
-import '../DATABASE/database_helper.dart';
-import '../DATABASE/sharedprefhelper.dart';
+import '../../DATABASE/database_helper.dart';
+import '../../DATABASE/sharedprefhelper.dart';
 
 class AddClient extends StatefulWidget {
   final Map<String, dynamic>? clientData;

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:gst_invoice/ADD/select_client.dart';
+import 'package:gst_invoice/ADD/client/select_client.dart';
 import 'package:gst_invoice/ADD/select_product.dart';
 import 'package:gst_invoice/DATABASE/database_helper.dart';
 import 'package:gst_invoice/color.dart';
@@ -327,12 +327,22 @@ class _InvoiceState extends State<Invoice> {
 
   void _editProduct(BuildContext context, int index) {
     int currentQty = selectedProducts[index]['qty'] ?? 1;
+    TextEditingController qtyController = TextEditingController(text: currentQty.toString());
 
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setStateDialog) {
+            void updateQty(int value) {
+              if (value > 0) {
+                setStateDialog(() {
+                  currentQty = value;
+                  qtyController.text = currentQty.toString();
+                });
+              }
+            }
+
             return AlertDialog(
               title: const Text("Update Quantity"),
               content: Column(
@@ -345,88 +355,107 @@ class _InvoiceState extends State<Invoice> {
                         icon: const Icon(Icons.remove),
                         onPressed: () {
                           if (currentQty > 1) {
-                            setStateDialog(() {
-                              currentQty--;
-                            });
+                            updateQty(currentQty - 1);
                           }
                         },
                       ),
-                      Text(
-                        currentQty.toString(),
-                        style: const TextStyle(fontSize: 20),
+                      SizedBox(
+                        width: 90,
+                        child: TextField(
+                          controller: qtyController,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 20),
+                          onChanged: (value) {
+                            int? newQty = int.tryParse(value);
+                            if (newQty != null && newQty > 0) {
+                              setStateDialog(() {
+                                currentQty = newQty;
+                              });
+                            }
+                          },
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.symmetric(vertical: 8),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.add),
                         onPressed: () {
-                          setStateDialog(() {
-                            currentQty++;
-                          });
+                          updateQty(currentQty + 1);
                         },
                       ),
                     ],
                   ),
-                  SizedBox(height: 10),
-                  ElevatedButton.icon(
-                    onPressed: () async {
-                      int productId = selectedProducts[index]['product_id'];
-                      int invoiceId = widget.invoiceId ?? 0;
-
-                      // Delete from database
-                      final db = await DatabaseHelper.getDatabase();
-                      await db.delete(
-                        'invoice_line',
-                        where: 'invoice_id = ? AND product_id = ?',
-                        whereArgs: [invoiceId, productId],
-                      );
-
-                      // Remove from UI
-                      setState(() {
-                        selectedProducts.removeAt(index);
-                      });
-
-                      Navigator.pop(context);
-                    },
-                    icon: const Icon(Icons.delete),
-                    label: const Text("Remove"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red.shade400,
-                    ),
-                  ),
                 ],
               ),
               actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Cancel"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    setState(() {
-                      selectedProducts[index] =
-                      Map<String, dynamic>.from(selectedProducts[index]);
-                      selectedProducts[index]['qty'] = currentQty;
-                    });
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: () async {
+                          int productId = selectedProducts[index]['product_id'];
+                          int invoiceId = widget.invoiceId ?? 0;
 
-                    int productId = selectedProducts[index]['product_id'];
-                    int invoiceId = widget.invoiceId ?? 0;
+                          final db = await DatabaseHelper.getDatabase();
+                          await db.delete(
+                            'invoice_line',
+                            where: 'invoice_id = ? AND product_id = ?',
+                            whereArgs: [invoiceId, productId],
+                          );
 
-                    final db = await DatabaseHelper.getDatabase();
-                    await db.update(
-                      'invoice_line',
-                      {'qty': currentQty},
-                      where: 'invoice_id = ? AND product_id = ?',
-                      whereArgs: [invoiceId, productId],
-                    );
+                          setState(() {
+                            selectedProducts.removeAt(index);
+                          });
 
-                    print("Database Updated: Product $productId, New Qty: $currentQty");
+                          Navigator.pop(context);
+                        },
+                        icon: const Icon(Icons.delete),
+                        label: const Text("Delete"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade400,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        child: const Text("Cancel"),
+                      ),
+                      ElevatedButton(
+                        onPressed: () async {
+                          setState(() {
+                            selectedProducts[index] =
+                            Map<String, dynamic>.from(selectedProducts[index]);
+                            selectedProducts[index]['qty'] = currentQty;
+                          });
 
-                    setState(() {}); // Recalculate totals
+                          int productId = selectedProducts[index]['product_id'];
+                          int invoiceId = widget.invoiceId ?? 0;
 
-                    Navigator.pop(context);
-                  },
-                  child: const Text("Save"),
+                          final db = await DatabaseHelper.getDatabase();
+                          await db.update(
+                            'invoice_line',
+                            {'qty': currentQty},
+                            where: 'invoice_id = ? AND product_id = ?',
+                            whereArgs: [invoiceId, productId],
+                          );
+
+                          print("Database Updated: Product $productId, New Qty: $currentQty");
+
+                          setState(() {}); // Recalculate totals
+
+                          Navigator.pop(context);
+                        },
+                        child: const Text("Save"),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             );

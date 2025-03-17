@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gst_invoice/ADD/invoice.dart';
 import 'package:gst_invoice/color.dart';
 import 'add_client.dart';
-import '../DATABASE/database_helper.dart';
+import '../../DATABASE/database_helper.dart';
+import 'client_detail.dart';
 
 class SelectClient extends StatefulWidget {
   bool pass;
@@ -39,7 +39,7 @@ class _SelectClientState extends State<SelectClient> {
 
     setState(() {
       clients = clientList;
-      filteredClients = clients; // Initially, show all clients
+      filteredClients = clients;
     });
   }
 
@@ -127,27 +127,31 @@ class _SelectClientState extends State<SelectClient> {
                 itemBuilder: (context, index) {
                   final client = filteredClients[index];
                   return GestureDetector(
-                    onTap: () {
-                      selectedClient = {
-                        'client_id': client['client_id'].toString(),
-                        'client_company': client['client_company'].toString(),
-                        'client_address': client['client_address'].toString(),
-                        'client_gstin': client['client_gstin'].toString(),
-                        'client_state': client['client_state'].toString(),
-                        'client_contact': client['client_contact'].toString(),
-                      };
-                  
-                  
-                      if(widget.pass == true)
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => Invoice(selectedClient: selectedClient,)));
-                      else
-                        Navigator.pop(context, selectedClient);
-                  
-                      print("================");
-                      print(selectedClient);
-                    },
+                      onTap: () async {
+                        selectedClient = {
+                          'client_id': client['client_id'].toString(),
+                          'client_company': client['client_company'].toString(),
+                          'client_address': client['client_address'].toString(),
+                          'client_gstin': client['client_gstin'].toString(),
+                          'client_state': client['client_state'].toString(),
+                          'client_contact': client['client_contact'].toString(),
+                        };
 
-                    child: ListTile(
+                        if (widget.pass == true) {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => ClientDetail(clientId: client['client_id'])),
+                          );
+
+                          if (result != null) {
+                            Navigator.pop(context, result); // ✅ Return selected client back to previous screen (Invoice or Settings)
+                          }
+                        } else {
+                          Navigator.pop(context, selectedClient); // ✅ Basic return if just selecting
+                        }
+                      },
+
+                      child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                       minLeadingWidth: 0,
                       leading: CircleAvatar(
@@ -161,7 +165,6 @@ class _SelectClientState extends State<SelectClient> {
                       title: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // First row: Company + Contact
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -180,7 +183,6 @@ class _SelectClientState extends State<SelectClient> {
                             ],
                           ),
                           SizedBox(height: 2),
-                          // Second row: State + GSTIN
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
@@ -198,7 +200,6 @@ class _SelectClientState extends State<SelectClient> {
                               padding: const EdgeInsets.only(left: 20),
                               child: Icon(Icons.more_vert, color: Colors.black54),
                             ),
-                            // constraints: BoxConstraints(minWidth: 100),
                             onSelected: (value) async {
                               if (value == 'edit') {
                                 bool? result = await Navigator.push(
@@ -209,7 +210,7 @@ class _SelectClientState extends State<SelectClient> {
                                 );
                                 if (result == true) {
                                   fetchClients();
-                                  setState(() {}); // Refresh UI after editing
+                                  setState(() {});
                                 }
                               } else if (value == 'delete') {
                                 showDialog(
