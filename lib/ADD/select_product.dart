@@ -17,8 +17,9 @@ class SelectProduct extends StatefulWidget {
 
 class _SelectProductState extends State<SelectProduct> {
   List<Map<String, dynamic>> productList = [];
-  List<Map<String, dynamic>> product = []; // ✅ Declare this
-  List<Map<String, dynamic>> filteredProducts = []; // ✅ Declare this
+  List<Map<String, dynamic>> product = [];
+  List<Map<String, dynamic>> filteredProducts = [];
+  bool isLoading = true;
 
   TextEditingController searchController = TextEditingController();
   FocusNode searchFocusNode = FocusNode();
@@ -36,6 +37,10 @@ class _SelectProductState extends State<SelectProduct> {
   }
 
   Future<void> fetchProducts() async {
+    setState(() {
+      isLoading = true;
+    });
+
     SharedPreferences prefs = await SharedPreferences.getInstance();
     bool isGstApplicable = (prefs.getInt("isGstApplicable") ?? 0) == 1;
     String gstType = prefs.getString("gstType") ?? "same";
@@ -46,7 +51,6 @@ class _SelectProductState extends State<SelectProduct> {
     setState(() {
       productList = data.map((product) {
         if (isGstApplicable && gstType == "same") {
-          // Override GST rate dynamically
           return {
             ...product,
             'product_gst': double.tryParse(gstRate) ?? 18.0,
@@ -58,8 +62,10 @@ class _SelectProductState extends State<SelectProduct> {
 
       product = List.from(productList);
       filteredProducts = List.from(productList);
+      isLoading = false; // Done loading
     });
   }
+
 
 
   void filterProduct(String query) {
@@ -132,10 +138,12 @@ class _SelectProductState extends State<SelectProduct> {
       ),
           // Display Products in Card View
           Expanded(
-            child: productList.isEmpty
+            child: isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : productList.isEmpty
                 ? Center(
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     FontAwesomeIcons.warehouse,
@@ -237,7 +245,7 @@ class _SelectProductState extends State<SelectProduct> {
                                 );
                                 if (result == true) fetchProducts();
                               } else if (value == 'delete') {
-                                _confirmDeleteProduct(context, product['product_id']);
+                                _confirmDeleteProduct(context, product['product_id'], fetchProducts);
                               }
                             },
                             itemBuilder: (context) => [
@@ -288,7 +296,7 @@ class _SelectProductState extends State<SelectProduct> {
   }
 }
 
-void _confirmDeleteProduct(BuildContext context, int productId) {
+void _confirmDeleteProduct(BuildContext context, int productId, VoidCallback onDelete) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
@@ -301,14 +309,72 @@ void _confirmDeleteProduct(BuildContext context, int productId) {
         ),
         TextButton(
           onPressed: () async {
-            await DatabaseHelper().deleteProduct(productId);
-            await DatabaseHelper().getProducts();
-            Navigator.pop(context);
+            Navigator.pop(context); // Close first dialog
+            _checkProductInInvoices(context, productId, onDelete); // Proceed to second check
           },
           child: const Text("Delete", style: TextStyle(color: Colors.red)),
         ),
       ],
     ),
   );
+}
+
+void _checkProductInInvoices(BuildContext context, int productId, VoidCallback onDelete) async {
+  final db = await DatabaseHelper.getDatabase();
+
+  // Fetch invoices where this product is present
+  final List<Map<String, dynamic>> invoices = await db.rawQuery(
+    '''
+    SELECT DISTINCT invoice.invoice_id 
+    FROM invoice 
+    JOIN invoice_line ON invoice.invoice_id = invoice_line.invoice_id
+    WHERE invoice_line.product_id = ?
+    ''',
+    [productId],
+  );
+
+  if (invoices.isNotEmpty) {
+    // Show confirmation dialog listing associated invoices
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Product Linked to Invoices"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("This product is used in the following invoices. Deleting it will also delete these invoices:"),
+            const SizedBox(height: 10),
+            ...invoices.map((invoice) => Text("Invoice ID: ${invoice['invoice_id']}")),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () async {
+              // Delete related invoices and product
+              for (var invoice in invoices) {
+                await db.delete('invoice', where: 'invoice_id = ?', whereArgs: [invoice['invoice_id']]);
+                await db.delete('invoice_line', where: 'invoice_id = ?', whereArgs: [invoice['invoice_id']]);
+              }
+
+              // Delete product after invoices are removed
+              await db.delete('product', where: 'product_id = ?', whereArgs: [productId]);
+
+              Navigator.pop(context,true); // Close dialog
+              onDelete(); // Refresh product list
+            },
+            child: const Text("Delete All", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  } else {
+    // If product is not linked to any invoices, delete it directly
+    await db.delete('product', where: 'product_id = ?', whereArgs: [productId]);
+    onDelete(); // Refresh product list
+  }
 }
 

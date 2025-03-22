@@ -85,11 +85,16 @@ class _GstInvoiceState extends State<GstInvoice>{
 
   final List<Widget> _pages = [
     Container(),
-    SelectProduct(isyes: true, boom: false),
+    Builder(
+      builder: (context) => SelectProduct(isyes: true, boom: false),
+    ),
     Container(),
-    SelectClient(pass: true, back: false),
+    Builder(
+      builder: (context) => SelectClient(pass: true, back: false),
+    ),
     Settings(),
   ];
+
 
   @override
   Widget build(BuildContext context) {
@@ -177,7 +182,12 @@ class _GstInvoiceState extends State<GstInvoice>{
   Widget _buildNavItem(IconData icon, String label, int index) {
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _selectedIndex = index),
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+          loadInvoices(); // Refresh UI when switching tabs
+        },
         child: SizedBox(
           height: double.infinity, // make it take full height of BottomAppBar
           child: Column(

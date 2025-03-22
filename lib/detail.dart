@@ -106,7 +106,12 @@ class _DetailState extends State<Detail> {
       client.client_gstin,
       (SELECT logo FROM companylogo LIMIT 1) AS company_logo,
       (SELECT BankDetails FROM company LIMIT 1) AS BankDetails,
-      (SELECT TandC FROM company LIMIT 1) AS TandC
+      (SELECT TandC FROM company LIMIT 1) AS TandC,
+      (SELECT company_name FROM company LIMIT 1) AS company_name,
+      (SELECT company_address FROM company LIMIT 1) AS company_address,
+      (SELECT company_gstin FROM company LIMIT 1) AS company_gstin,
+      (SELECT company_state FROM company LIMIT 1) AS company_state,
+      (SELECT company_contact FROM company LIMIT 1) AS company_contact
     FROM invoice 
     INNER JOIN client ON invoice.client_id = client.client_id 
     WHERE invoice.invoice_id = ?
@@ -208,6 +213,16 @@ class _DetailState extends State<Detail> {
     print(invoiceDetails);
     print("999999999999999999999999999999999999999");
 
+    double amount = invoiceDetails?['total_amount'] ?? 0.0; // Total before GST but before discount
+    // double discount = (invoiceDetails?['discount'] ?? 0.0).toDouble();
+    // double discountAmount = (amount * discount) / 100;
+    // double taxableAmount = amount - discountAmount;
+
+    double originalAmount = invoiceDetails?['taxable_amount'] ?? 0.0;
+    double discountpdf = (invoiceDetails?['discount'] ?? 0.0).toDouble();
+    double discountAmountpdf = (originalAmount * discount) / 100;
+    double taxableAmountpdf = originalAmount - discountAmountpdf;
+
     final prefs = await SharedPreferences.getInstance();
     bool isGstApplicable = (prefs.getInt("isGstApplicable") ?? 1) == 1;
 
@@ -255,19 +270,19 @@ class _DetailState extends State<Detail> {
                                 child: pw.Column(
                                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                                   children: [
-                                    pw.Text("${invoiceDetails?['client_company'] ?? 'N/A'}",
+                                    pw.Text("${invoiceDetails?['company_name'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
                                     ),
-                                    pw.Text("Address: ${invoiceDetails?['client_address'] ?? 'N/A'}",
+                                    pw.Text("Address: ${invoiceDetails?['company_address'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
-                                    pw.Text("GSTIN: ${invoiceDetails?['client_gstin'] ?? 'N/A'}",
+                                    pw.Text("GSTIN: ${invoiceDetails?['company_gstin'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
-                                    pw.Text("State: ${invoiceDetails?['client_state'] ?? 'N/A'}",
+                                    pw.Text("State: ${invoiceDetails?['company_state'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
-                                    pw.Text("Contact: ${invoiceDetails?['client_contact'].toString() ?? 'N/A'}",
+                                    pw.Text("Contact: ${invoiceDetails?['company_contact'].toString() ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
                                   ],
@@ -284,6 +299,9 @@ class _DetailState extends State<Detail> {
                           ),
                           pw.Text(
                             "${invoiceDetails?['client_address'] ?? 'N/A'}",
+                            style: pw.TextStyle(fontSize: 12),
+                          ),pw.Text(
+                            "${invoiceDetails?['client_state'] ?? 'N/A'}",
                             style: pw.TextStyle(fontSize: 12),
                           ),
                         ],
@@ -492,8 +510,11 @@ class _DetailState extends State<Detail> {
                             1: pw.FlexColumnWidth(2),
                           },
                           children: [
-                            _buildSummaryRow("Taxable Amount", taxableAmount.toStringAsFixed(2)),
-                            _buildSummaryRow("Discount (${discount.toStringAsFixed(2)}%)", "- ${discountAmount.toStringAsFixed(2)}"),
+                            _buildSummaryRow("Amount", originalAmount.toStringAsFixed(2)),
+                            _buildSummaryRow("Discount (${discountpdf.toStringAsFixed(2)}%)", "-${discountAmountpdf.toStringAsFixed(2)}"),
+                            _buildSummaryRow("Taxable Amount", taxableAmountpdf.toStringAsFixed(2)),
+
+
                             if (isGstApplicable)
                               if (isSameState) ...[
                                 _buildSummaryRow("CGST", totalCcgst.toStringAsFixed(2)),
@@ -510,7 +531,7 @@ class _DetailState extends State<Detail> {
                                 pw.Padding(
                                   padding: pw.EdgeInsets.all(8),
                                   child: pw.Text(
-                                    "${(taxableAmount + (isGstApplicable ? (isSameState ? (totalCcgst + totalSgst) : totalIgst) : 0) - discountAmount).toStringAsFixed(2)}",
+                                    "${(taxableAmountpdf + (isGstApplicable ? (isSameState ? (totalCcgst + totalSgst) : totalIgst) : 0)).toStringAsFixed(2)}",
                                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                                   ),
                                 ),

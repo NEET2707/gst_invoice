@@ -21,6 +21,7 @@ class _SelectClientState extends State<SelectClient> {
   FocusNode searchFocusNode = FocusNode();
   Map<String, dynamic>? selectedClient;
   late bool back;
+  bool isLoading = true;
 
 
   @override
@@ -34,14 +35,20 @@ class _SelectClientState extends State<SelectClient> {
   }
 
   Future<void> fetchClients() async {
+    setState(() {
+      isLoading = true;
+    });
+
     final db = await DatabaseHelper.getDatabase();
     List<Map<String, dynamic>> clientList = await db.query('client');
 
     setState(() {
       clients = clientList;
       filteredClients = clients;
+      isLoading = false;
     });
   }
+
 
   void filterClients(String query) {
     setState(() {
@@ -57,9 +64,68 @@ class _SelectClientState extends State<SelectClient> {
 
   Future<void> deleteClient(int clientId) async {
     final db = await DatabaseHelper.getDatabase();
-    await db.delete('client', where: 'client_id = ?', whereArgs: [clientId]);
-    fetchClients(); // Refresh list after deletion
+
+    // Check if the client has associated invoices
+    final List<Map<String, dynamic>> invoices = await db.query(
+      'invoice',
+      where: 'client_id = ?',
+      whereArgs: [clientId],
+    );
+
+    if (invoices.isNotEmpty) {
+      // Show confirmation dialog listing associated invoices
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("Client Linked to Invoices"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text("This client has invoices associated with it. Deleting the client will also delete the following invoices:"),
+              const SizedBox(height: 10),
+              ...invoices.map((invoice) => Text("Invoice ID: ${invoice['invoice_id']}")),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Cancel"),
+            ),
+            TextButton(
+              onPressed: () async {
+                // Delete all invoices associated with this client
+                for (var invoice in invoices) {
+                  await db.delete(
+                    'invoice',
+                    where: 'invoice_id = ?',
+                    whereArgs: [invoice['invoice_id']],
+                  );
+
+                  await db.delete(
+                    'invoice_line',
+                    where: 'invoice_id = ?',
+                    whereArgs: [invoice['invoice_id']],
+                  );
+                }
+
+                // Delete the client after invoices are deleted
+                await db.delete('client', where: 'client_id = ?', whereArgs: [clientId]);
+
+                Navigator.pop(context,true); // Close dialog
+                fetchClients(); // Refresh UI
+              },
+              child: const Text("Delete All", style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // No invoices found, proceed with client deletion
+      await db.delete('client', where: 'client_id = ?', whereArgs: [clientId]);
+      fetchClients(); // Refresh UI
+    }
   }
+
 
   @override
   void dispose() {
@@ -76,7 +142,9 @@ class _SelectClientState extends State<SelectClient> {
         backgroundColor: themecolor,
         title: const Text("Select Client"),
       ),
-      body: Column(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           // ✅ Fixed: Search Bar with Padding
           Padding(

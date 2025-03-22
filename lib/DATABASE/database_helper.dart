@@ -199,6 +199,43 @@ class DatabaseHelper {
     return await db.delete('product', where: 'product_id = ?', whereArgs: [productId]);
   }
 
+  Future<void> deleteProductWithInvoices(int productId) async {
+    final db = await getDatabase();
+
+    // Check if the product exists in any invoice line
+    List<Map<String, dynamic>> invoiceLines = await db.query(
+      'invoice_line',
+      where: 'product_id = ?',
+      whereArgs: [productId],
+    );
+
+    if (invoiceLines.isNotEmpty) {
+      // Extract unique invoice IDs related to this product
+      List<int> invoiceIds = invoiceLines.map((line) => line['invoice_id'] as int).toSet().toList();
+
+      // Delete invoice lines associated with this product
+      await db.delete('invoice_line', where: 'product_id = ?', whereArgs: [productId]);
+
+      // Check if any invoices are now empty and delete them
+      for (int invoiceId in invoiceIds) {
+        List<Map<String, dynamic>> remainingLines = await db.query(
+          'invoice_line',
+          where: 'invoice_id = ?',
+          whereArgs: [invoiceId],
+        );
+
+        if (remainingLines.isEmpty) {
+          // If no more items are in the invoice, delete the invoice
+          await db.delete('invoice', where: 'invoice_id = ?', whereArgs: [invoiceId]);
+        }
+      }
+    }
+
+    // Finally, delete the product itself
+    await db.delete('product', where: 'product_id = ?', whereArgs: [productId]);
+  }
+
+
   Future<int> updateProduct(Map<String, dynamic> product) async {
     final db = await getDatabase();
     return await db.update(
@@ -361,7 +398,7 @@ class DatabaseHelper {
   static Future<bool> exportToCSV(String filePath) async {
    final _safStreamPlugin = SafStream();
    final _safUtil = SafUtil();
-  String? selectedDirectory = await _safUtil.openDirectory();
+  // String? selectedDirectory = await _safUtil.openDirectory();
   try {
       Database db = await getDatabase();
       List<String> tables = ['client','product','invoice','invoice_line', 'companylogo'];
@@ -380,7 +417,7 @@ class DatabaseHelper {
       }
       String csv = const ListToCsvConverter().convert(csvData);
       Uint8List unitdata = Uint8List.fromList(csv.codeUnits);
-      await _safStreamPlugin.writeFileBytes(selectedDirectory??"", "fxdfhjh.csv", "text/csv", unitdata);
+      await _safStreamPlugin.writeFileBytes(filePath, "backup.csv", "text/csv", unitdata);
 
 
       print("✅ Exported Success");
@@ -446,8 +483,6 @@ class DatabaseHelper {
       return false;
     }
   }
-
-
 
   static Future<Map<String, double>> getMonthlyGstReport(DateTime selectedDate) async {
     final db = await getDatabase();

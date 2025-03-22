@@ -271,9 +271,14 @@ class _InvoiceState extends State<Invoice> {
       int qty = int.tryParse(product['qty'].toString()) ?? 1;
       double price = product['product_price'];
       double gstRate = product['product_gst'];
-      double gstAmount = ((price * qty) * gstRate) / 100;
 
-      bool isSameState = selectedClient != null && selectedClient!['client_state'] == companyState;
+      // Apply discount on price
+      double discountedPrice = price - (price * discountPercentage / 100);
+      double gstAmount = ((discountedPrice * qty) * gstRate) / 100;
+
+      bool isSameState = selectedClient != null &&
+          selectedClient!['client_state'] == companyState;
+
       double cgst = isSameState ? gstAmount / 2 : 0;
       double sgst = isSameState ? gstAmount / 2 : 0;
       double igst = isSameState ? 0 : gstAmount;
@@ -281,6 +286,7 @@ class _InvoiceState extends State<Invoice> {
       return sum + cgst + sgst + igst;
     });
   }
+
 
 
   double _getDiscountedTotal() {
@@ -856,7 +862,7 @@ class _InvoiceState extends State<Invoice> {
                             children: [
                               TextSpan(
                                 text: isSameState
-                                    ? "₹${(gstAmount / 2).toStringAsFixed(2)}\n"
+                                    ? "₹${(gstAmount ).toStringAsFixed(2)}\n"
                                     : "₹${gstAmount.toStringAsFixed(2)}\n",
                                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                               ),
@@ -963,18 +969,24 @@ class _InvoiceState extends State<Invoice> {
         // Summary Section
         Padding(
           padding: const EdgeInsets.all(12.0),
+
           child: Column(
             children: [
-              _buildSummaryRow("Taxable Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
-              if (isGstApplicable)
-                if (isGstApplicable)
-                  ..._buildGSTBreakdownRows(),
+              _buildSummaryRow("Amount", "₹${_getTotalPrice().toStringAsFixed(2)}"),
               _buildSummaryRow(
                 "Discount (${discountPercentage.toStringAsFixed(2)}%)",
                 "- ₹${(_getTotalPrice() * discountPercentage / 100).toStringAsFixed(2)}",
                 isBold: true,
                 isHighlighted: true,
               ),
+              _buildSummaryRow(
+                "Taxable Amount",
+                "₹${(_getTotalPrice() - (_getTotalPrice() * discountPercentage / 100)).toStringAsFixed(2)}",
+              ),
+              if (isGstApplicable)
+                if (isGstApplicable)
+                  ..._buildGSTBreakdownRows(),
+
               _buildSummaryRow(
                 "Total Amount After Discount",
                 "₹${_getDiscountedTotal().toStringAsFixed(2)}",
