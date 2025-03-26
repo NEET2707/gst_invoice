@@ -158,126 +158,126 @@ class _SelectProductState extends State<SelectProduct> {
                 ],
               ),
             )
-                : Card(
-              child: ListView.separated(
-                itemCount: filteredProducts.length,
-                separatorBuilder: (context, index) => Divider(
-                  color: Colors.grey.shade300,
-                  thickness: 0.5,
-                  height: 0,
-                ),
-                itemBuilder: (context, index) {
-                  final product = filteredProducts[index];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4), // tighter spacing
-                    child: InkWell(
-                      onTap: () {
-                        if (widget.isyes == true)
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => Invoice(product: [{...product, 'qty': 1}]), // 👈 Add qty here
+                : ListView.separated(
+                  itemCount: filteredProducts.length,
+                  separatorBuilder: (context, index) => Divider(
+                    color: Colors.grey.shade300,
+                    thickness: 0.5,
+                    height: 0,
+                    indent: 15,
+                    endIndent: 15,
+                  ),
+                  itemBuilder: (context, index) {
+                    final product = filteredProducts[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4), // tighter spacing
+                      child: InkWell(
+                        onTap: () {
+                          if (widget.isyes == true)
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => Invoice(product: [{...product, 'qty': 1}]), // 👈 Add qty here
+                              ),
+                            );
+                          else
+                            Navigator.pop(context, product);
+                        },
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16, // smaller avatar
+                              backgroundColor: themecolor,
+                              child: Text(
+                                product['product_name'][0].toUpperCase(),
+                                style: const TextStyle(color: Colors.white, fontSize: 12),
+                              ),
                             ),
-                          );
-                        else
-                          Navigator.pop(context, product);
-                      },
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 16, // smaller avatar
-                            backgroundColor: themecolor,
-                            child: Text(
-                              product['product_name'][0].toUpperCase(),
-                              style: const TextStyle(color: Colors.white, fontSize: 12),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        product['product_name'],
-                                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-                                        overflow: TextOverflow.ellipsis,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          product['product_name'],
+                                          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 14.0),
-                                      child: Text(
-                                        "₹${product['product_price']}",
-                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 14.0),
+                                        child: Text(
+                                          "₹${product['product_price']}",
+                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    Text("${product['product_gst']}%", style: const TextStyle(fontSize: 11)),
-                                    if (product['product_hsn'] != null && product['product_hsn'].toString().trim().isNotEmpty) ...[
-                                      const SizedBox(width: 4),
-                                      Text("/ ${product['product_hsn']}", style: const TextStyle(fontSize: 11)),
                                     ],
-                                  ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Text("${product['product_gst']}%", style: const TextStyle(fontSize: 11)),
+                                      if (product['product_hsn'] != null && product['product_hsn'].toString().trim().isNotEmpty) ...[
+                                        const SizedBox(width: 4),
+                                        Text("/ ${product['product_hsn']}", style: const TextStyle(fontSize: 11)),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            PopupMenuButton<String>(
+                              icon: Padding(
+                                padding: const EdgeInsets.only(left: 18.0),
+                                child: Icon(Icons.more_vert,  color: Colors.black54),
+                              ),
+                              // constraints: BoxConstraints(minWidth: 1000),
+                              onSelected: (value) async {
+                                if (value == 'edit') {
+                                  bool? result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => Product(product: product),
+                                    ),
+                                  );
+                                  if (result == true) fetchProducts();
+                                } else if (value == 'delete') {
+                                  _confirmDeleteProduct(context, product['product_id'], fetchProducts);
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.edit, color: Colors.blue, size: 18),
+                                      SizedBox(width: 6),
+                                      Text("Edit", style: TextStyle(fontSize: 13)),
+                                    ],
+                                  ),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.delete, color: Colors.red, size: 18),
+                                      SizedBox(width: 6),
+                                      Text("Delete", style: TextStyle(fontSize: 13)),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
-                          ),
-
-                          PopupMenuButton<String>(
-                            icon: Padding(
-                              padding: const EdgeInsets.only(left: 24.0),
-                              child: Icon(Icons.more_vert,  color: Colors.black54),
-                            ),
-                            // constraints: BoxConstraints(minWidth: 1000),
-                            onSelected: (value) async {
-                              if (value == 'edit') {
-                                bool? result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => Product(product: product),
-                                  ),
-                                );
-                                if (result == true) fetchProducts();
-                              } else if (value == 'delete') {
-                                _confirmDeleteProduct(context, product['product_id'], fetchProducts);
-                              }
-                            },
-                            itemBuilder: (context) => [
-                              const PopupMenuItem(
-                                value: 'edit',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.edit, color: Colors.blue, size: 18),
-                                    SizedBox(width: 6),
-                                    Text("Edit", style: TextStyle(fontSize: 13)),
-                                  ],
-                                ),
-                              ),
-                              const PopupMenuItem(
-                                value: 'delete',
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.delete, color: Colors.red, size: 18),
-                                    SizedBox(width: 6),
-                                    Text("Delete", style: TextStyle(fontSize: 13)),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
-              ),
-            ),
+                    );
+                  },
+                ),
           ),
         ],
       ),

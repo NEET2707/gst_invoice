@@ -18,6 +18,8 @@ class _ProductState extends State<Product> {
   final TextEditingController _gstController = TextEditingController();
   final TextEditingController _hsnController = TextEditingController();
 
+  final FocusNode _nameFocusNode = FocusNode(); // ADD FOCUS NODE
+
   int? productId;
   bool _isGstApplicable = false;
   String _gstType = "same"; // Default to "same"
@@ -26,12 +28,22 @@ class _ProductState extends State<Product> {
   String? _priceErrorText;
   String? _gstErrorText;
 
-
-
   @override
   void initState() {
     super.initState();
-    _initializeProductPage(); // this handles async logic
+    _initializeProductPage();
+
+    Future.delayed(Duration(milliseconds: 300), () {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_nameFocusNode);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameFocusNode.dispose(); // Dispose of focus node
+    super.dispose();
   }
 
   Future<void> _initializeProductPage() async {
@@ -139,7 +151,9 @@ class _ProductState extends State<Product> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             buildTextField("Product Name", "Enter Product Name",
-                controller: _nameController, errorText: _nameErrorText),
+                controller: _nameController,
+                focusNode: _nameFocusNode, // ASSIGN FOCUS NODE HERE
+                errorText: _nameErrorText),
 
             buildTextField("Price", "Enter Product Price",
                 controller: _priceController,
@@ -166,6 +180,7 @@ class _ProductState extends State<Product> {
 Widget buildTextField(String label, String hint,
     {TextEditingController? controller,
       TextInputType? keyboardType,
+      FocusNode? focusNode, // ADD THIS
       bool readOnly = false,
       String? errorText}) {
   return Column(
@@ -188,6 +203,7 @@ Widget buildTextField(String label, String hint,
           textCapitalization: TextCapitalization.sentences,
           controller: controller,
           keyboardType: keyboardType,
+          focusNode: focusNode, // ADD THIS
           readOnly: readOnly,
           decoration: InputDecoration(
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -207,6 +223,7 @@ Widget buildTextField(String label, String hint,
     ],
   );
 }
+
 
 
 

@@ -42,7 +42,9 @@ class _GstInvoiceState extends State<GstInvoice>{
     setState(() => _isLoading = true);
 
     final data = await fetchInvoices();
-    await _loadCompanyDetails(); // ✅ Fetch latest company details
+    await _loadCompanyDetails();
+
+    print("Fetched invoices count: ${data.length}"); // ✅ DEBUG
 
     setState(() {
       invoices = data;
@@ -230,17 +232,21 @@ class _GstInvoiceState extends State<GstInvoice>{
         return Column(
           children: [
             GestureDetector(
-              onTap: () {
-                Navigator.push(
+              onTap: () async{
+                final result = await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => Detail(
-                      invoiceId: int.parse(invoice['invoice_id'].toString()), // Convert to int
+                      invoiceId: int.parse(invoice['invoice_id'].toString()),
                       clientid: int.parse(invoice['client_id'].toString()),
                       onStatusUpdated: loadInvoices,
                     ),
                   ),
                 );
+
+                if (result == true) {
+                  loadInvoices(); // ✅ Now this will run after deletion!
+                }
               },
               child: Container(
                 margin: EdgeInsets.symmetric(horizontal: 5, vertical: 2),

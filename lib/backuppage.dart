@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gst_invoice/color.dart';
+import 'package:intl/intl.dart';
 import '../DATABASE/database_helper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -9,9 +10,8 @@ class BackupPage extends StatefulWidget {
 }
 
 class _BackupPageState extends State<BackupPage> {
-  String storageBackupStatus = "No Backup yet";
-  String lastBackupTime = "Not Available";
-  String lastRestoreTime = "Not Available";
+  String lastBackupTime = "";
+  // String lastRestoreTime = "Not Available";
 
   @override
   void initState() {
@@ -22,8 +22,10 @@ class _BackupPageState extends State<BackupPage> {
   Future<void> _loadLastBackupRestoreTimes() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
-      lastBackupTime = prefs.getString("lastBackupTime") ?? "Not Available";
-      lastRestoreTime = prefs.getString("lastRestoreTime") ?? "Not Available";
+      String saveddate = prefs.getString("lastBackupTime") ?? "";
+      lastBackupTime =
+          DateFormat("dd MMMM yyyy hh:mm a").format(DateTime.parse(saveddate));
+      // lastRestoreTime = prefs.getString("lastRestoreTime") ?? "Not Available";
     });
   }
 
@@ -36,33 +38,27 @@ class _BackupPageState extends State<BackupPage> {
     });
   }
 
-  Future<void> _saveLastRestoreTime() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String currentTime = DateTime.now().toString();
-    await prefs.setString("lastRestoreTime", currentTime);
-    setState(() {
-      lastRestoreTime = currentTime;
-    });
-  }
+  // Future<void> _saveLastRestoreTime() async {
+  //   SharedPreferences prefs = await SharedPreferences.getInstance();
+  //   String currentTime = DateTime.now().toString();
+  //   await prefs.setString("lastRestoreTime", currentTime);
+  //   setState(() {
+  //     lastRestoreTime = currentTime;
+  //   });
+  // }
 
   void backupDatabase() async {
     bool success = await DatabaseHelper.backupDatabase();
     if (success) {
       await _saveLastBackupTime();
     }
-    setState(() {
-      storageBackupStatus = success ? "Last Backup: Successful" : "Last Backup: Failed";
-    });
   }
 
   void restoreDatabase() async {
     bool success = await DatabaseHelper.restoreDatabase();
     if (success) {
-      await _saveLastRestoreTime();
+      // await _saveLastRestoreTime();
     }
-    setState(() {
-      storageBackupStatus = success ? "Restore Successful!" : "Restore Failed!";
-    });
   }
 
   @override
@@ -75,21 +71,26 @@ class _BackupPageState extends State<BackupPage> {
         child: Column(
           children: [
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
               elevation: 4,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Storage Backup & Restore", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text("Storage Backup & Restore",
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     SizedBox(height: 8),
-                    Text("Back up your Accounts and GST Invoice to your Internal storage. You can restore it from Backup file."),
+                    Text(
+                        "Back up your Accounts and GST Invoice to your Internal storage. You can restore it from Backup file."),
                     SizedBox(height: 8),
-                    Text("$storageBackupStatus", style: TextStyle(fontWeight: FontWeight.bold)),
-                    SizedBox(height: 8),
-                    Text("Last Backup: $lastBackupTime", style: TextStyle(fontSize: 14)),
-                    Text("Last Restore: $lastRestoreTime", style: TextStyle(fontSize: 14)),
+                    Text(
+                        lastBackupTime == ""
+                            ? "No Backup yet"
+                            : "Last Backup: $lastBackupTime",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,

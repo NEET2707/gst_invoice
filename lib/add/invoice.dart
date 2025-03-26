@@ -251,11 +251,25 @@ class _InvoiceState extends State<Invoice> {
     );
 
     if (selectedProduct != null) {
+      int selectedProductId = selectedProduct['product_id'];
+      int existingIndex = selectedProducts.indexWhere((p) => p['product_id'] == selectedProductId);
+
       setState(() {
-        selectedProducts = List.from(selectedProducts)..add({...selectedProduct, 'qty': 1});
+        if (existingIndex != -1) {
+          // ✅ Product already exists — increase its quantity
+          int currentQty = int.tryParse(selectedProducts[existingIndex]['qty'].toString()) ?? 1;
+          selectedProducts[existingIndex]['qty'] = currentQty + 1;
+        } else {
+          // ✅ New product — add with qty = 1
+          selectedProducts.add({
+            ...selectedProduct,
+            'qty': 1,
+          });
+        }
       });
     }
   }
+
 
 
   double _getTotalPrice() {
@@ -516,7 +530,9 @@ class _InvoiceState extends State<Invoice> {
         selectedClient!['client_state'] == companyState;
 
     double totalGST = _getTotalGST();
-    double totalGstRate = 0;
+    double totalGstRate = selectedProducts.isNotEmpty
+        ? selectedProducts.map((p) => p['product_gst'] ?? 0).reduce((a, b) => a + b) / selectedProducts.length
+        : 0;
 
     // Calculate average GST rate based on products
     if (selectedProducts.isNotEmpty) {
@@ -532,11 +548,17 @@ class _InvoiceState extends State<Invoice> {
 
     List<Widget> rows = [];
 
+    // if (isSameState) {
+    //   rows.add(_buildSummaryRow("CGST (${(totalGstRate / 2).toStringAsFixed(2)}%)", "₹${cgst.toStringAsFixed(2)}"));
+    //   rows.add(_buildSummaryRow("SGST (${(totalGstRate / 2).toStringAsFixed(2)}%)", "₹${sgst.toStringAsFixed(2)}"));
+    // } else {
+    //   rows.add(_buildSummaryRow("IGST (${totalGstRate.toStringAsFixed(2)}%)", "₹${igst.toStringAsFixed(2)}"));
+    // }
     if (isSameState) {
-      rows.add(_buildSummaryRow("CGST (${(totalGstRate / 2).toStringAsFixed(2)}%)", "₹${cgst.toStringAsFixed(2)}"));
-      rows.add(_buildSummaryRow("SGST (${(totalGstRate / 2).toStringAsFixed(2)}%)", "₹${sgst.toStringAsFixed(2)}"));
+      rows.add(_buildSummaryRow("CGST", "₹${cgst.toStringAsFixed(2)}"));
+      rows.add(_buildSummaryRow("SGST", "₹${sgst.toStringAsFixed(2)}"));
     } else {
-      rows.add(_buildSummaryRow("IGST (${totalGstRate.toStringAsFixed(2)}%)", "₹${igst.toStringAsFixed(2)}"));
+      rows.add(_buildSummaryRow("IGST", "₹${igst.toStringAsFixed(2)}"));
     }
 
     return rows;
@@ -857,22 +879,22 @@ class _InvoiceState extends State<Invoice> {
                         ? DataCell(
                       SizedBox(
                         width: MediaQuery.of(context).size.width * 0.2,
-                        child: Text.rich(
+                        child:Text.rich(
                           TextSpan(
                             children: [
                               TextSpan(
-                                text: isSameState
-                                    ? "₹${(gstAmount ).toStringAsFixed(2)}\n"
-                                    : "₹${gstAmount.toStringAsFixed(2)}\n",
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                                text: "₹${gstAmount.toStringAsFixed(2)}", // Only the GST amount
+                                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500), // Normal size
                               ),
                               TextSpan(
-                                text: isSameState ? "(CGST,SGST)" : "(IGST)",
-                                style: const TextStyle(fontSize: 12),
+                                text: isSameState
+                                    ? " (CGST ₹${((product['product_gst'] ?? 0) / 2).toStringAsFixed(2)}%  SGST ${((product['product_gst'] ?? 0) / 2).toStringAsFixed(2)}%)"
+                                    : " (IGST ₹${product['product_gst'].toStringAsFixed(2)}%)",
+                                style: TextStyle(fontSize: 10, color: Colors.grey), // Smaller GST rate text
                               ),
                             ],
                           ),
-                        ),
+                        )
                       ),
                     )
                         : const DataCell(SizedBox()),

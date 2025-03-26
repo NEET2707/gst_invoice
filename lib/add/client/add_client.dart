@@ -23,6 +23,8 @@ class _AddClientState extends State<AddClient> {
   bool isCompanyNameEmpty = false;
   bool isGstinEmpty = false;
 
+  final FocusNode _nameFocusNode = FocusNode(); // ADD FOCUS NODE
+
   bool isGstinValid(String gstin) {
     final pattern = r'^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$';
     return RegExp(pattern).hasMatch(gstin);
@@ -43,6 +45,18 @@ class _AddClientState extends State<AddClient> {
     if (selectedState == null || selectedState!.isEmpty) {
       _loadDefaultCustomerState();
     }
+
+    Future.delayed(Duration(milliseconds: 300), () {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_nameFocusNode);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _nameFocusNode.dispose(); // Dispose of focus node
+    super.dispose();
   }
 
   void _loadDefaultCustomerState() async {
@@ -119,7 +133,7 @@ class _AddClientState extends State<AddClient> {
   Future<void> saveClientData() async {
     setState(() {
       isCompanyNameEmpty = companyNameController.text.trim().isEmpty;
-      isGstinEmpty = gstinController.text.trim().isEmpty || !isGstinValid(gstinController.text.trim());
+      isGstinEmpty = gstinController.text.trim().isNotEmpty && !isGstinValid(gstinController.text.trim());
       isStateEmpty = selectedState == null || selectedState!.isEmpty;
     });
 
@@ -130,7 +144,7 @@ class _AddClientState extends State<AddClient> {
     try {
       Map<String, dynamic> clientData = {
         'client_company': companyNameController.text.trim(),
-        'client_gstin': gstinController.text.trim(),
+        'client_gstin': gstinController.text.trim(), // Can be empty string
         'client_contact': int.tryParse(contactController.text) ?? "",
         'client_address': addressController.text.trim(),
         'client_state': selectedState,
@@ -179,10 +193,13 @@ class _AddClientState extends State<AddClient> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              buildTextField("Client / Company Name", "Enter Name", controller: companyNameController, showError: isCompanyNameEmpty),
+              buildTextField("Client / Company Name", "Enter Name",
+                  controller: companyNameController,
+                  focusNode: _nameFocusNode, // ASSIGN FOCUS NODE HERE
+                  showError: isCompanyNameEmpty),
               buildTextField(
                 "GSTIN",
-                "Enter GST Number(27AAAPA1234A1Z5)",
+                "Enter GST Number (27AAAPA1234A1Z5)",
                 controller: gstinController,
                 showError: isGstinEmpty,
                 errorMessage: gstinController.text.trim().isEmpty
@@ -210,6 +227,7 @@ Widget buildTextField(
     String hint, {
       TextEditingController? controller,
       TextInputType? keyboardType,
+      FocusNode? focusNode,
       bool showError = false,
       String? errorMessage,
     }) {
@@ -232,9 +250,17 @@ Widget buildTextField(
           ],
         ),
         child: TextField(
-          textCapitalization: TextCapitalization.sentences,
+          textCapitalization: TextCapitalization.characters,
           controller: controller,
           keyboardType: keyboardType,
+          focusNode: focusNode,
+          onChanged: (value) {
+            final upperText = value.toUpperCase();
+            controller?.value = controller.value.copyWith(
+              text: upperText,
+              selection: TextSelection.collapsed(offset: upperText.length),
+            );
+          },
           decoration: InputDecoration(
             contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             border: InputBorder.none,
@@ -242,6 +268,7 @@ Widget buildTextField(
             hintStyle: TextStyle(color: Colors.grey.shade400),
           ),
         ),
+
       ),
       if (showError)
         Padding(
@@ -252,3 +279,4 @@ Widget buildTextField(
     ],
   );
 }
+

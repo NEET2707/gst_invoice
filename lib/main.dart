@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gst_invoice/color.dart';
 import 'DATABASE/sharedprefhelper.dart';
 import 'organization_detail.dart';
 import 'gst_invoice.dart';
@@ -26,6 +27,9 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: false,
+        appBarTheme: AppBarTheme(color: Colors.transparent,elevation: 0,
+            // iconTheme: IconThemeData(color: themecolor),titleTextStyle: TextStyle(color: themecolor, fontSize: 20)
+        )
       ),
       home: isDataSaved
           ? GstInvoice(
