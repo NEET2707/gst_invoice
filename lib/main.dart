@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:get/get_navigation/get_navigation.dart';
 import 'package:gst_invoice/color.dart';
+import 'package:gst_invoice/my_theme.dart';
 import 'DATABASE/sharedprefhelper.dart';
 import 'organization_detail.dart';
 import 'gst_invoice.dart';
@@ -21,16 +23,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'GST Invoice',
-      theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: false,
-          appBarTheme: AppBarTheme(color: Colors.transparent,elevation: 0,
-            // iconTheme: IconThemeData(color: themecolor),titleTextStyle: TextStyle(color: themecolor, fontSize: 20)
-          )
-      ),
+      // theme: ThemeData(
+      //     colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      //     useMaterial3: false,
+      //     appBarTheme: AppBarTheme(color: Colors.transparent,elevation: 0,
+      //       // iconTheme: IconThemeData(color: themecolor),titleTextStyle: TextStyle(color: themecolor, fontSize: 20)
+      //     )
+      // ),
+      theme: lightTheme,
+      darkTheme: darkTheme,
       home: isDataSaved
           ? GstInvoice(
         companyName: companyDetails["companyName"] ?? "",
@@ -41,3 +45,4 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
