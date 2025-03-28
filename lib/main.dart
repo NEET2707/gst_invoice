@@ -1,40 +1,31 @@
 import 'package:flutter/material.dart';
-import 'DATABASE/sharedprefhelper.dart';
-import 'organization_detail.dart';
-import 'gst_invoice.dart';
+import 'package:get/get.dart';
+import 'package:gst_invoice/color.dart';
+import 'package:gst_invoice/my_theme.dart';
+import 'splash_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  bool isDataSaved = await SharedPrefHelper.isCompanyDataSaved();
-  Map<String, dynamic> companyDetails = await SharedPrefHelper.getCompanyDetails();
-
-  runApp(MyApp(isDataSaved: isDataSaved, companyDetails: companyDetails));
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final bool isDataSaved;
-  final Map<String, dynamic> companyDetails;
-
-  const MyApp({super.key, required this.isDataSaved, required this.companyDetails});
-
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'GST Invoice',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-        useMaterial3: false,
-      ),
-      home: isDataSaved
-          ? GstInvoice(
-        companyName: companyDetails["companyName"] ?? "",
-        companyState: companyDetails["companyState"] ?? "",
-        gstRate: companyDetails["gstRate"] ?? "0.0",
-      )
-          : OrganizationDetail(),
+      // theme: ThemeData(
+      //   colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      //   useMaterial3: false,
+      //   appBarTheme: AppBarTheme(
+      //     color: Colors.transparent,
+      //     elevation: 0,
+      //   ),
+      // ),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      home: SplashScreen(), // ✅ Start with SplashScreen
     );
   }
 }
-

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:gst_invoice/color.dart';
 import 'package:gst_invoice/settings.dart';
+import 'package:gst_invoice/theme_controlloer.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'ADD/invoice.dart';
 import 'ADD/client/select_client.dart';
@@ -21,7 +22,7 @@ class GstInvoice extends StatefulWidget {
   State<GstInvoice> createState() => _GstInvoiceState();
 }
 
-class _GstInvoiceState extends State<GstInvoice>{
+class _GstInvoiceState extends State<GstInvoice> {
   List<Map<String, dynamic>> invoices = [];
   List<Map<String, dynamic>> filteredInvoices = [];
   bool _isLoading = true;
@@ -37,12 +38,13 @@ class _GstInvoiceState extends State<GstInvoice>{
     loadInvoices();
   }
 
-
   Future<void> loadInvoices() async {
     setState(() => _isLoading = true);
 
     final data = await fetchInvoices();
-    await _loadCompanyDetails(); // ✅ Fetch latest company details
+    await _loadCompanyDetails();
+
+    print("Fetched invoices count: ${data.length}");
 
     setState(() {
       invoices = data;
@@ -52,10 +54,18 @@ class _GstInvoiceState extends State<GstInvoice>{
   }
 
   Future<void> _loadCompanyDetails() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
+    final db = await DatabaseHelper.getDatabase();
+
+    final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
+
     setState(() {
-      companyName = prefs.getString('companyName') ?? "Not Available"; // ✅ Store locally
-      companyState = prefs.getString('companyState') ?? "Not Available";
+      if (companyData.isNotEmpty) {
+        companyName = companyData.first['company_name'] ?? "Not Available";
+        companyState = companyData.first['company_state'] ?? "Not Available";
+      } else {
+        companyName = "Not Available";
+        companyState = "Not Available";
+      }
     });
   }
 
@@ -76,8 +86,8 @@ class _GstInvoiceState extends State<GstInvoice>{
   String formatDate(String? date) {
     if (date == null || date.isEmpty) return "No Date";
     try {
-      DateTime parsedDate = DateFormat("d MMM yyyy").parse(date);
-      return DateFormat("d MMM, yyyy").format(parsedDate);
+      DateTime parsedDate = DateFormat("d MMM yy").parse(date);
+      return DateFormat("d MMM, yy").format(parsedDate);
     } catch (e) {
       return date;
     }
@@ -85,19 +95,24 @@ class _GstInvoiceState extends State<GstInvoice>{
 
   final List<Widget> _pages = [
     Container(),
-    SelectProduct(isyes: true, boom: false),
+    Builder(
+      builder: (context) => SelectProduct(isyes: true, boom: false),
+    ),
     Container(),
-    SelectClient(pass: true, back: false),
+    Builder(
+      builder: (context) => SelectClient(pass: true, back: false),
+    ),
     Settings(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    ThemeController themeController = Get.put(ThemeController());
     return Scaffold(
       appBar: (_selectedIndex == 1 || _selectedIndex == 3 || _selectedIndex == 4)
           ? null
           : AppBar(
-        backgroundColor: themecolor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         title: _isSearching
             ? TextField(
           controller: _searchController,
@@ -122,34 +137,46 @@ class _GstInvoiceState extends State<GstInvoice>{
             },
           ),
         ],
+        leading: IconButton(
+          onPressed: () {
+            themeController.changeTheme();
+          },
+          icon: Obx(
+                () => themeController.isDark.value
+                ? const Icon(Icons.dark_mode)
+                : const Icon(Icons.light_mode),
+          ),
+        ),
       ),
       body: _selectedIndex == 0
           ? RefreshIndicator(
         onRefresh: loadInvoices,
-        child: _isLoading  // ✅ Show loader if data is fetching
+        child: _isLoading
             ? Center(child: CircularProgressIndicator())
             : Card(
               child: Column(
                 children: [
-                  SizedBox(height: 15,),
-                  buildInvoiceList(),
-                  SizedBox(height: 50,),
-              
+                  SizedBox(height: 15),
+                  Expanded(child: buildInvoiceList()),
+                  SizedBox(height: 50),
                 ],
               ),
             ),
       )
-          : RefreshIndicator(onRefresh: () async { loadInvoices(); },
+          : RefreshIndicator(
+          onRefresh: () async {
+            loadInvoices();
+          },
           child: _pages[_selectedIndex]),
       floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
-        backgroundColor: themecolor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => Invoice()),
           ).then((_) {
-            loadInvoices(); // ✅ Reload invoices AND company details
+            loadInvoices();
           });
         },
         child: Icon(Icons.add, color: Colors.white, size: 34),
@@ -157,7 +184,7 @@ class _GstInvoiceState extends State<GstInvoice>{
           : null,
       bottomNavigationBar: BottomAppBar(
         shape: CircularNotchedRectangle(),
-        height: 55,
+        height: 65,
         notchMargin: 8.0,
         color: Colors.white,
         child: Row(
@@ -173,24 +200,33 @@ class _GstInvoiceState extends State<GstInvoice>{
     );
   }
 
-  // ✅ Move this function OUTSIDE the `build` method
   Widget _buildNavItem(IconData icon, String label, int index) {
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() => _selectedIndex = index),
+        onTap: () {
+          setState(() {
+            _selectedIndex = index;
+          });
+          loadInvoices();
+        },
         child: SizedBox(
-          height: double.infinity, // make it take full height of BottomAppBar
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center, // center vertically
+            mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 20, color: _selectedIndex == index ? themecolor : Colors.grey),
+              Icon(icon,
+                  size: 20,
+                  color: _selectedIndex == index
+                      ? Theme.of(context).colorScheme.background
+                      : Colors.grey),
               SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: _selectedIndex == index ? themecolor : Colors.grey,
+                  color: _selectedIndex == index
+                      ? Theme.of(context).colorScheme.background
+                      : Colors.grey,
                 ),
               ),
             ],
@@ -205,124 +241,125 @@ class _GstInvoiceState extends State<GstInvoice>{
         ? Center(
       child: Text(
         "No Invoices Available",
-        style: TextStyle(fontSize: 18, color: Colors.grey),
+        style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.background),
       ),
     )
         : ListView.separated(
       shrinkWrap: true,
-               physics: NeverScrollableScrollPhysics(),
-              separatorBuilder: (context, index) =>  Divider(color: Colors.grey.shade300, thickness: 1),
-              itemCount: filteredInvoices.length,
-              itemBuilder: (context, index) {
+      physics: NeverScrollableScrollPhysics(),
+      separatorBuilder: (context, index) =>
+          Divider(color: Colors.grey.shade300, thickness: 1),
+      itemCount: filteredInvoices.length,
+      itemBuilder: (context, index) {
         final invoice = filteredInvoices[index];
         bool isPaid = invoice['is_paid'] == 1;
 
-        return Column(
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => Detail(
-                      invoiceId: int.parse(invoice['invoice_id'].toString()), // Convert to int
-                      clientid: int.parse(invoice['client_id'].toString()),
-                      onStatusUpdated: loadInvoices,
+        return GestureDetector(
+          onTap: () async {
+            final result = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => Detail(
+                  invoiceId: int.parse(invoice['invoice_id'].toString()),
+                  clientid: int.parse(invoice['client_id'].toString()),
+                  onStatusUpdated: loadInvoices,
+                ),
+              ),
+            );
+
+            if (result == true) {
+              loadInvoices();
+            }
+          },
+          child: Container(
+            margin: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            padding: const EdgeInsets.all(2.0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    "${invoice['invoice_id']}",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
                   ),
-                );
-              },
-              child: Container(
-                margin: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                padding: const EdgeInsets.all(2.0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  // color: Colors.white,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: themecolor,
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        "${invoice['invoice_id']}",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
-                          Row(
-                            children: [
-                              Text(
-                                invoice['client_company'] ?? "No Client",
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 18),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 4),
-                          Row(
-                            children: [
-                              Text(
-                                formatDate(invoice['invoic_date']),
-                                style:
-                                TextStyle(color: Colors.grey, fontSize: 14),
-                              ),
-                            ],
+                          Text(
+                            invoice['client_company'] ?? "No Client",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 18),
                           ),
                         ],
                       ),
-                    ),
-                    SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Text(
+                            formatDate(invoice['invoic_date']),
+                            style: TextStyle(
+                                color: Colors.grey, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Row(
-                          children: [
-                            Text(
-                              "₹ ${invoice['total_amount'].toStringAsFixed(2)}",
-                              style: TextStyle(
-                                  fontSize: 16, fontWeight: FontWeight.w500),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 4),
-                        Container(
-                          padding:
-                          EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                          decoration: BoxDecoration(
-                            color: isPaid ? Colors.green : Colors.red,
-                            borderRadius: BorderRadius.circular(5),
-                          ),
-                          child: Text(
-                            isPaid ? "PAID" : "UNPAID",
-                            style: TextStyle(color: Colors.white, fontSize: 10),
-                          ),
+                        Text(
+                          "₹ ${invoice['total_amount'].toStringAsFixed(2)}",
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
+                    SizedBox(height: 4),
+                    Container(
+                      padding:
+                      EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isPaid ? Colors.green : Colors.red,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      child: Text(
+                        isPaid ? "PAID" : "UNPAID",
+                        style:
+                        TextStyle(color: Colors.white, fontSize: 10),
+                      ),
+                    ),
                   ],
                 ),
-              ),
+              ],
             ),
-
-          ],
+          ),
         );
-              },
-            );
+      },
+    );
   }
 }
+

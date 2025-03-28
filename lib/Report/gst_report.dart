@@ -37,6 +37,10 @@ class _GstReportState extends State<GstReport> {
     setState(() => isLoading = true);
     gstData = await DatabaseHelper.getMonthlyGstReport(selectedDate);
     gstInvoices = await DatabaseHelper.getGstInvoicesByMonth(selectedDate);
+
+    print("GST Data: $gstData");
+    print("GST Invoices: $gstInvoices");
+
     setState(() => isLoading = false);
   }
 
@@ -189,7 +193,7 @@ class _GstReportState extends State<GstReport> {
     String monthYear = DateFormat('MMM yyyy').format(selectedDate);
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: themecolor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         title: Text("GST Report"),
         actions: [
           TextButton(
@@ -257,8 +261,8 @@ class _GstReportState extends State<GstReport> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _generatePdf,
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.picture_as_pdf),
+        backgroundColor: Colors.white,
+        child: Icon(Icons.picture_as_pdf,color: Theme.of(context).colorScheme.background,),
       ),
     );
   }

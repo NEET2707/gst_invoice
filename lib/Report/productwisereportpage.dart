@@ -169,7 +169,7 @@ class _ProductWiseReportPageState extends State<ProductWiseReportPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Product Wise Report'),
-        backgroundColor: Colors.blue,
+        backgroundColor: Theme.of(context).colorScheme.background,
         actions: [
           TextButton(
             onPressed: _showMonthYearPicker,
@@ -284,8 +284,8 @@ class _ProductWiseReportPageState extends State<ProductWiseReportPage> {
         ),
       floatingActionButton: FloatingActionButton(
         onPressed: generatePDF,
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.download),
+        backgroundColor: Colors.white,
+        child: Icon(Icons.download, color: Theme.of(context).colorScheme.background,size: 30,),
       ),
     );
   }

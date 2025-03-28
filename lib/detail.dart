@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:sqflite/sqflite.dart';
 import 'ADD/invoice.dart';
 import 'DATABASE/database_helper.dart';
 import 'DATABASE/sharedprefhelper.dart';
@@ -50,26 +48,37 @@ class _DetailState extends State<Detail> {
   }
 
   void getGstStatus() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    int gstFlag = prefs.getInt('isGstApplicable') ?? 0;
+    final db = await DatabaseHelper.getDatabase();
+    final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
+
     setState(() {
-      isGstApplicable = gstFlag == 1;
+      isGstApplicable = companyData.isNotEmpty ? (companyData.first['is_tax'] == 1) : false;
     });
+
+    print("GST Applicable: $isGstApplicable"); // ✅ Debug print
   }
 
   void getPreference() async {
-    final prefs = await SharedPreferences.getInstance();
-    int gstPref = prefs.getInt('isGstApplicable') ?? 1;
-    isGstApplicable = gstPref == 1;
-    print("GST Applicable: $isGstApplicable"); // ✅ Debug print
-    setState(() {});
+    final db = await DatabaseHelper.getDatabase();
+    final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
+
+    setState(() {
+      isGstApplicable = companyData.isNotEmpty ? (companyData.first['is_tax'] == 1) : false;
+    });
+
+    print("GST Applicable (from DB): $isGstApplicable"); // ✅ Debug print
   }
 
-
   Future<void> _loadGstPreference() async {
-    final prefs = await SharedPreferences.getInstance();
+    final db = await DatabaseHelper.getDatabase();
+    final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
+
     setState(() {
-      isGstApplicable = (prefs.getInt("isGstApplicable") ?? 1) == 1;
+      if (companyData.isNotEmpty) {
+        isGstApplicable = companyData.first['is_tax'] == 1;
+      } else {
+        isGstApplicable = false; // Default if no company data found
+      }
     });
   }
 
@@ -106,7 +115,12 @@ class _DetailState extends State<Detail> {
       client.client_gstin,
       (SELECT logo FROM companylogo LIMIT 1) AS company_logo,
       (SELECT BankDetails FROM company LIMIT 1) AS BankDetails,
-      (SELECT TandC FROM company LIMIT 1) AS TandC
+      (SELECT TandC FROM company LIMIT 1) AS TandC,
+      (SELECT company_name FROM company LIMIT 1) AS company_name,
+      (SELECT company_address FROM company LIMIT 1) AS company_address,
+      (SELECT company_gstin FROM company LIMIT 1) AS company_gstin,
+      (SELECT company_state FROM company LIMIT 1) AS company_state,
+      (SELECT company_contact FROM company LIMIT 1) AS company_contact
     FROM invoice 
     INNER JOIN client ON invoice.client_id = client.client_id 
     WHERE invoice.invoice_id = ?
@@ -208,9 +222,22 @@ class _DetailState extends State<Detail> {
     print(invoiceDetails);
     print("999999999999999999999999999999999999999");
 
-    final prefs = await SharedPreferences.getInstance();
-    bool isGstApplicable = (prefs.getInt("isGstApplicable") ?? 1) == 1;
+    double amount = invoiceDetails?['total_amount'] ?? 0.0; // Total before GST but before discount
+    // double discount = (invoiceDetails?['discount'] ?? 0.0).toDouble();
+    // double discountAmount = (amount * discount) / 100;
+    // double taxableAmount = amount - discountAmount;
 
+    double originalAmount = invoiceDetails?['taxable_amount'] ?? 0.0;
+    double discountpdf = (invoiceDetails?['discount'] ?? 0.0).toDouble();
+    double discountAmountpdf = (originalAmount * discount) / 100;
+    double taxableAmountpdf = originalAmount - discountAmountpdf;
+
+    final db = await DatabaseHelper.getDatabase();
+    final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
+
+    bool isGstApplicable = companyData.isNotEmpty ? (companyData.first['is_tax'] == 1) : false;
+
+    print("GST Applicable (from DB): $isGstApplicable"); // ✅ Debug print
 
     Uint8List? imageBytes;
     if (invoiceDetails?['company_logo'] != null && invoiceDetails?['company_logo'].isNotEmpty) {
@@ -249,25 +276,27 @@ class _DetailState extends State<Detail> {
                                   width: 100,
                                   height: 100,
                                   margin: pw.EdgeInsets.only(right: 10),
-                                  child: pw.Image(pw.MemoryImage(imageBytes)),
+                                  child: pw.ClipOval(
+                                    child: pw.Image(pw.MemoryImage(imageBytes), fit: pw.BoxFit.cover),
+                                  ),
                                 ),
                               pw.Expanded(
                                 child: pw.Column(
                                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                                   children: [
-                                    pw.Text("${invoiceDetails?['client_company'] ?? 'N/A'}",
+                                    pw.Text("${invoiceDetails?['company_name'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
                                     ),
-                                    pw.Text("Address: ${invoiceDetails?['client_address'] ?? 'N/A'}",
+                                    pw.Text("Address: ${invoiceDetails?['company_address'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
-                                    pw.Text("GSTIN: ${invoiceDetails?['client_gstin'] ?? 'N/A'}",
+                                    pw.Text("GSTIN: ${invoiceDetails?['company_gstin'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
-                                    pw.Text("State: ${invoiceDetails?['client_state'] ?? 'N/A'}",
+                                    pw.Text("State: ${invoiceDetails?['company_state'] ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
-                                    pw.Text("Contact: ${invoiceDetails?['client_contact'].toString() ?? 'N/A'}",
+                                    pw.Text("Contact: ${invoiceDetails?['company_contact'].toString() ?? 'N/A'}",
                                       style: pw.TextStyle(fontSize: 12),
                                     ),
                                   ],
@@ -284,6 +313,9 @@ class _DetailState extends State<Detail> {
                           ),
                           pw.Text(
                             "${invoiceDetails?['client_address'] ?? 'N/A'}",
+                            style: pw.TextStyle(fontSize: 12),
+                          ),pw.Text(
+                            "${invoiceDetails?['client_state'] ?? 'N/A'}",
                             style: pw.TextStyle(fontSize: 12),
                           ),
                         ],
@@ -360,36 +392,36 @@ class _DetailState extends State<Detail> {
                         children: [
                           pw.Padding(
                             padding: pw.EdgeInsets.all(8),
-                            child: pw.Text("S No", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            child: pw.Text("S No", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                           ),
                           pw.Padding(
                             padding: pw.EdgeInsets.all(8),
-                            child: pw.Text("Item Description", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            child: pw.Text("Item Description", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                           ),
                           if (hasHSN)
                             pw.Padding(
                               padding: pw.EdgeInsets.all(8),
-                              child: pw.Text("HSN", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                              child: pw.Text("HSN", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                             ),
                           pw.Padding(
                             padding: pw.EdgeInsets.all(8),
-                            child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            child: pw.Text("Qty", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                           ),
                           pw.Padding(
                             padding: pw.EdgeInsets.all(8),
-                            child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            child: pw.Text("Price", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                           ),
                           pw.Padding(
                             padding: pw.EdgeInsets.all(8),
-                            child: pw.Text("Taxable Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            child: pw.Text("Taxable Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                           ),
                           pw.Padding(
                             padding: pw.EdgeInsets.all(8),
-                            child: pw.Text("GST", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            child: pw.Text("GST", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                           ),
                           pw.Padding(
                             padding: pw.EdgeInsets.all(8),
-                            child: pw.Text("Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                            child: pw.Text("Amount", style: pw.TextStyle(fontWeight: pw.FontWeight.bold),textAlign: pw.TextAlign.center),
                           ),
                         ],
                       ),
@@ -418,25 +450,31 @@ class _DetailState extends State<Detail> {
                               ),
                             pw.Padding(
                               padding: pw.EdgeInsets.all(8),
-                              child: pw.Text("${product['qty'] ?? '0'}"),
+                              child: pw.Container(
+                                alignment: pw.Alignment.center, // Centers the content inside the container
+                                child: pw.Text(
+                                  "${product['qty'] ?? '0'}",
+                                  textAlign: pw.TextAlign.center, // Centers the text within the text box
+                                ),
+                              ),
                             ),
                             pw.Padding(
                               padding: pw.EdgeInsets.all(8),
-                              child: pw.Text("${product['product_price'] ?? ''}"),
+                              child: pw.Text("${product['product_price'] ?? ''}",textAlign: pw.TextAlign.end),
                             ),
                             pw.Padding(
                               padding: pw.EdgeInsets.all(8),
-                              child: pw.Text("${product['taxableAmount'] ?? ''}"),
+                              child: pw.Text("${product['taxableAmount'] ?? ''}",textAlign: pw.TextAlign.end),
                             ),
                             pw.Padding(
                               padding: pw.EdgeInsets.all(8),
                               child: pw.Column(
-                                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                                crossAxisAlignment: pw.CrossAxisAlignment.end, // Aligns text to the right
                                 children: [
-                                  if (product['gst_type'] == "CGST_SGST") ...[
-                                    pw.Text("${((gstAmount) / 2).toStringAsFixed(2)}"),
-                                    pw.Text("${((gstAmount) / 2).toStringAsFixed(2)}"),
-                                  ] else
+                                  // if (product['gst_type'] == "CGST_SGST") ...[
+                                  //   pw.Text("${((gstAmount) / 2).toStringAsFixed(2)}"),
+                                  //   pw.Text("${((gstAmount) / 2).toStringAsFixed(2)}"),
+                                  // ] else
                                     pw.Text("${gstAmount.toStringAsFixed(2)}"),
                                 ],
                               ),
@@ -444,7 +482,7 @@ class _DetailState extends State<Detail> {
                             pw.Padding(
                               padding: pw.EdgeInsets.all(8),
                               child: pw.Text(
-                                "${total.toStringAsFixed(2)}",
+                                "${total.toStringAsFixed(2)}",textAlign: pw.TextAlign.end,
                                 style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                               ),
                             ),
@@ -479,7 +517,6 @@ class _DetailState extends State<Detail> {
                           ) : pw.SizedBox(),
                         ),
 
-
                       pw.SizedBox(width: 10), // Space between the two sections
 
                       // Left Side: Summary Table (50% width)
@@ -492,8 +529,11 @@ class _DetailState extends State<Detail> {
                             1: pw.FlexColumnWidth(2),
                           },
                           children: [
-                            _buildSummaryRow("Taxable Amount", taxableAmount.toStringAsFixed(2)),
-                            _buildSummaryRow("Discount (${discount.toStringAsFixed(2)}%)", "- ${discountAmount.toStringAsFixed(2)}"),
+                            _buildSummaryRow("Amount", originalAmount.toStringAsFixed(2)),
+                            _buildSummaryRow("Discount (${discountpdf.toStringAsFixed(2)}%)", "-${discountAmountpdf.toStringAsFixed(2)}"),
+                            _buildSummaryRow("Taxable Amount", taxableAmountpdf.toStringAsFixed(2)),
+
+
                             if (isGstApplicable)
                               if (isSameState) ...[
                                 _buildSummaryRow("CGST", totalCcgst.toStringAsFixed(2)),
@@ -510,7 +550,7 @@ class _DetailState extends State<Detail> {
                                 pw.Padding(
                                   padding: pw.EdgeInsets.all(8),
                                   child: pw.Text(
-                                    "${(taxableAmount + (isGstApplicable ? (isSameState ? (totalCcgst + totalSgst) : totalIgst) : 0) - discountAmount).toStringAsFixed(2)}",
+                                    "${(taxableAmountpdf + (isGstApplicable ? (isSameState ? (totalCcgst + totalSgst) : totalIgst) : 0)).toStringAsFixed(2)}",textAlign: pw.TextAlign.end,
                                     style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                                   ),
                                 ),
@@ -524,7 +564,6 @@ class _DetailState extends State<Detail> {
 
                   pw.SizedBox(height: 10),
 
-                  // Bank Details SectiontermsController
                   if (termsController!.isNotEmpty)
                     pw.Container(
                       width: double.infinity,
@@ -543,9 +582,7 @@ class _DetailState extends State<Detail> {
                       ),
                     ),
 
-
                   pw.SizedBox(height: 30),
-
                   // Footer Section
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.end,
@@ -596,14 +633,14 @@ class _DetailState extends State<Detail> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context); // Close dialog
+                Navigator.pop(context); // ❌ just closes dialog
               },
               child: Text("Cancel"),
             ),
             TextButton(
-              onPressed: () {
-                _deleteInvoice(); // Call function to delete invoice
-                Navigator.pop(context); // Close dialog
+              onPressed: () async {
+                Navigator.pop(context); // ✅ close the dialog first
+                await _deleteInvoice(); // ✅ delete and return
               },
               child: Text("Yes", style: TextStyle(color: Colors.red)),
             ),
@@ -613,30 +650,27 @@ class _DetailState extends State<Detail> {
     );
   }
 
-  void _deleteInvoice() async {
+  Future<void> _deleteInvoice() async {
     final db = await DatabaseHelper.getDatabase();
 
-    // Delete invoice from the `invoice` table
     await db.delete(
       'invoice',
       where: 'invoice_id = ?',
       whereArgs: [widget.invoiceId],
     );
 
-    // Delete related invoice items from `invoice_line`
     await db.delete(
       'invoice_line',
       where: 'invoice_id = ?',
       whereArgs: [widget.invoiceId],
     );
 
-    // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Invoice deleted successfully!")),
     );
 
-    // Navigate back after deletion
-    Navigator.pop(context);
+    // ✅ This pops the Detail screen and tells GstInvoice to refresh
+    Navigator.pop(context, true);
   }
 
   pw.TableRow _buildSummaryRow(String label, String value) {
@@ -644,22 +678,29 @@ class _DetailState extends State<Detail> {
       children: [
         pw.Padding(
           padding: pw.EdgeInsets.all(8),
-          child: pw.Text(label),
+          child: pw.Text(
+            label,
+            textAlign: pw.TextAlign.left, // Label aligned left
+          ),
         ),
         pw.Padding(
           padding: pw.EdgeInsets.all(8),
-          child: pw.Text(value),
+          child: pw.Text(
+            value,
+            textAlign: pw.TextAlign.right, // Value aligned right
+          ),
         ),
       ],
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
     if (invoiceDetails == null) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: themecolor,
+          backgroundColor: Theme.of(context).colorScheme.background,
           title: Text("Detail"),
         ),
         body: Center(child: CircularProgressIndicator()),
@@ -668,7 +709,7 @@ class _DetailState extends State<Detail> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: themecolor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         title: Text("Detail"),
         actions: [
           GestureDetector(
@@ -795,7 +836,7 @@ class _DetailState extends State<Detail> {
       title: "Buyer Details",
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: themecolor, // Ensure `themecolor` is defined
+          backgroundColor: Theme.of(context).colorScheme.background, // Ensure `themecolor` is defined
           child: Text(
             firstLetter,
             style: const TextStyle(color: Colors.white),
@@ -955,7 +996,7 @@ class _DetailState extends State<Detail> {
             title: "Taxable Amount",
             value: "₹${taxableAmount.toStringAsFixed(2)}",
             isBold: true,
-            color: Colors.green,
+            color: Theme.of(context).colorScheme.onBackground,
           ),
           _buildRow(
             title: "Discount (${discount.toStringAsFixed(2)}%)",
@@ -976,7 +1017,7 @@ class _DetailState extends State<Detail> {
               title: "Final Amount",
               value: "₹${totalWithGst.toStringAsFixed(2)}",
               isBold: true,
-              color: Colors.blue,
+              color: Theme.of(context).colorScheme.onBackground,
             ),
           ] else ...[
             Divider(),
@@ -984,7 +1025,7 @@ class _DetailState extends State<Detail> {
               title: "Final Amount",
               value: "₹${totalWithoutGst.toStringAsFixed(2)}",
               isBold: true,
-              color: Colors.blue,
+              color: Theme.of(context).colorScheme.onBackground,
             ),
           ],
         ],
@@ -993,7 +1034,7 @@ class _DetailState extends State<Detail> {
   }
 
 // Helper method for consistent row formatting
-  Widget _buildRow({required String title, required String value, bool isBold = false, Color color = Colors.black}) {
+  Widget _buildRow({required String title, required String value, bool isBold = false, Color ? color }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5.0),
       child: Row(
@@ -1008,7 +1049,7 @@ class _DetailState extends State<Detail> {
           Expanded(
             child: Text(
               value,
-              style: TextStyle(fontSize: 16, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: color),
+              style: TextStyle(fontSize: 16, fontWeight: isBold ? FontWeight.bold : FontWeight.normal, color: color ?? Theme.of(context).colorScheme.onBackground,),
               textAlign: TextAlign.right,
             ),
           ),
@@ -1026,8 +1067,8 @@ class _DetailState extends State<Detail> {
           Container(
             width: double.infinity,
             padding: EdgeInsets.all(1.0),
-            color: Colors.white,
-            child: Text(title, style: TextStyle(color: themecolor, fontWeight: FontWeight.w600,fontSize: 20)),
+            // color: Theme.of(context).colorScheme.onBackground,
+            child: Text(title, style: TextStyle(color: Theme.of(context).colorScheme.onBackground, fontWeight: FontWeight.w600,fontSize: 20)),
           ),
           SizedBox(height: 4),
           child,

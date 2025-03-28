@@ -1,4 +1,4 @@
-package com.example.gst_invoice
+package gnhub.gst.invoice
 
 import io.flutter.embedding.android.FlutterActivity
 

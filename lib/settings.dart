@@ -19,7 +19,6 @@ class Settings extends StatefulWidget {
 class _SettingsState extends State<Settings> {
   Map<String, dynamic>? companyDetails;
 
-
   @override
   void initState() {
     super.initState();
@@ -33,25 +32,24 @@ class _SettingsState extends State<Settings> {
     });
   }
 
-
   Future<void> _onOrganizationDetailTap() async {
     bool? result = await Navigator.push(
       context,
-      MaterialPageRoute(builder: (context) => OrganizationDetail(temp: true,)),
+      MaterialPageRoute(
+          builder: (context) => OrganizationDetail(
+                temp: true,
+              )),
     );
     if (result == true) {
-      _loadCompanyDetails();  // ✅ Reload data when coming back
+      _loadCompanyDetails(); // ✅ Reload data when coming back
     }
-
   }
-
-
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: themecolor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         title: const Text("Settings"),
       ),
       body: ListView(
@@ -64,7 +62,8 @@ class _SettingsState extends State<Settings> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) =>  SelectClient(pass: true, back: true)),
+                MaterialPageRoute(
+                    builder: (context) => SelectClient(pass: true, back: true)),
               );
             },
           ),
@@ -75,13 +74,16 @@ class _SettingsState extends State<Settings> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SelectProduct(boom: true,)),
+                MaterialPageRoute(
+                    builder: (context) => SelectProduct(
+                          boom: true,
+                        )),
               );
             },
           ),
           _buildSettingsItem(
             icon: Icons.settings,
-            title: "Settings",
+            title: "Company Details",
             subtitle: companyDetails != null
                 ? "Company: ${companyDetails!["companyName"]}"
                 : "Edit Details Of Your Company",
@@ -122,12 +124,10 @@ State: ${companyDetails?['companyState'] ?? 'N/A'}
               Share.share(message);
             },
           ),
-
-
           _buildSettingsItem(
             icon: Icons.cloud_upload,
-            title: "Cloud Backup",
-            subtitle: "Backup on your Google Drive",
+            title: "Backup / Restore",
+            subtitle: "Backup / Restore your Gst Invoices",
             onTap: () {
               Navigator.push(
                 context,
@@ -158,7 +158,7 @@ State: ${companyDetails?['companyState'] ?? 'N/A'}
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
-        leading: Icon(icon, size: 30, color: Colors.grey[700]),
+        leading: Icon(icon, size: 30, color: Theme.of(context).colorScheme.scrim),
         title: Text(
           title,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
@@ -237,4 +237,3 @@ void _showCompensationDetailsDialog(BuildContext context) {
     },
   );
 }
-

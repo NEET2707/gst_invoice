@@ -17,7 +17,7 @@ class _ReportPageState extends State<ReportPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Report'),
-        backgroundColor: Colors.blue,
+        backgroundColor: Theme.of(context).colorScheme.background,
       ),
       body: Center(
         child: Column(
