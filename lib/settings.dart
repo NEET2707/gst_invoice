@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 import 'package:gst_invoice/color.dart';
 import 'package:gst_invoice/ADD/client/select_client.dart';
 import 'package:gst_invoice/ADD/select_product.dart';
 import 'package:gst_invoice/organization_detail.dart';
+import 'package:gst_invoice/theme_controlloer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'DATABASE/sharedprefhelper.dart';
@@ -47,7 +50,9 @@ class _SettingsState extends State<Settings> {
 
   @override
   Widget build(BuildContext context) {
+    ThemeController themeController = Get.put(ThemeController());
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.background,
         title: const Text("Settings"),
@@ -55,32 +60,32 @@ class _SettingsState extends State<Settings> {
       body: ListView(
         padding: const EdgeInsets.all(10),
         children: [
-          _buildSettingsItem(
-            icon: Icons.person,
-            title: "Manage Clients",
-            subtitle: "Manage All Client - Edit/Delete",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => SelectClient(pass: true, back: true)),
-              );
-            },
-          ),
-          _buildSettingsItem(
-            icon: Icons.inventory,
-            title: "Manage Products",
-            subtitle: "Manage All Products - Edit/Delete",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => SelectProduct(
-                          boom: true,
-                        )),
-              );
-            },
-          ),
+          // _buildSettingsItem(
+          //   icon: Icons.person,
+          //   title: "Manage Clients",
+          //   subtitle: "Manage All Client - Edit/Delete",
+          //   onTap: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //           builder: (context) => SelectClient(pass: true, back: true)),
+          //     );
+          //   },
+          // ),
+          // _buildSettingsItem(
+          //   icon: Icons.inventory,
+          //   title: "Manage Products",
+          //   subtitle: "Manage All Products - Edit/Delete",
+          //   onTap: () {
+          //     Navigator.push(
+          //       context,
+          //       MaterialPageRoute(
+          //           builder: (context) => SelectProduct(
+          //                 boom: true,
+          //               )),
+          //     );
+          //   },
+          // ),
           _buildSettingsItem(
             icon: Icons.settings,
             title: "Company Details",
@@ -99,6 +104,21 @@ class _SettingsState extends State<Settings> {
                 MaterialPageRoute(builder: (context) => ReportPage()),
               );
             },
+          ),
+          _buildSettingsItem(
+            icon: Icons.color_lens,
+            title: "App Theme Mode",
+            subtitle: "Dark, Light mode",
+            trailingWidget: IconButton(
+              onPressed: () {
+                themeController.changeTheme();
+              },
+              icon: Obx(
+                    () => themeController.isDark.value
+                    ? const Icon(Icons.dark_mode, color: Colors.black,)
+                    : const Icon(Icons.light_mode, color: Colors.black,),
+              ),
+            ),
           ),
           _buildSettingsItem(
             icon: Icons.share,
@@ -153,17 +173,19 @@ State: ${companyDetails?['companyState'] ?? 'N/A'}
     required String title,
     required String subtitle,
     Function()? onTap,
+    Widget? trailingWidget,
   }) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ListTile(
-        leading: Icon(icon, size: 30, color: Theme.of(context).colorScheme.scrim),
+        leading: Icon(icon, size: 30, color: Theme.of(context).colorScheme.onTertiary),
         title: Text(
           title,
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
         subtitle: Text(subtitle),
+        trailing: trailingWidget, // ✅ Ensure the trailing widget is added here
         onTap: onTap,
       ),
     );

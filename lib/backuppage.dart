@@ -64,6 +64,7 @@ class _BackupPageState extends State<BackupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
           backgroundColor: Theme.of(context).colorScheme.background, title: Text("Backup And Restore")),
       body: Padding(

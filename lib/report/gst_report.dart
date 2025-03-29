@@ -192,6 +192,7 @@ class _GstReportState extends State<GstReport> {
   Widget build(BuildContext context) {
     String monthYear = DateFormat('MMM yyyy').format(selectedDate);
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.background,
         title: Text("GST Report"),

@@ -22,7 +22,7 @@ final ThemeData lightTheme = ThemeData(
     // background: lightBgColor,
     background: lightBgColor,
     onBackground: lightTextColor,
-    primary: Colors.deepPurple,
+    primary: Colors.white,
     onPrimary: Colors.white,
     surface: lightDivColor,
     onSurface: lightTextColor,
@@ -36,6 +36,9 @@ final ThemeData lightTheme = ThemeData(
     onSecondaryContainer: lightTextColor,
     outline: lightCircleAvatarColor,
     scrim: lightIconColor,
+    inversePrimary: lightbodybgColor,
+    onTertiary: lightSettingsColor,
+    onPrimaryFixedVariant: lightFiconColor,
   ),
 );
 
@@ -59,7 +62,7 @@ final ThemeData darkTheme = ThemeData(
   colorScheme: ColorScheme.dark(
     background: darkBgColor,
     onBackground: darkTextColor,
-    primary: Colors.deepPurple,
+    primary: Colors.white,
     onPrimary: Colors.white,
     surface: darkDivColor,
     onSurface: darkTextColor,
@@ -73,5 +76,8 @@ final ThemeData darkTheme = ThemeData(
     onSecondaryContainer: darkTextColor,
     outline: darkCircleAvatarColor,
     scrim: darkIconColor,
+    inversePrimary: darkbodybgColor,
+    onTertiary: darkSettingsColor,
+    onPrimaryFixedVariant: darkFiconColor,
   ),
 );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:gst_invoice/ADD/product.dart';
-import 'package:gst_invoice/DATABASE/database_helper.dart'; // Import Database Helper
+import 'package:gst_invoice/DATABASE/database_helper.dart';
 import '../color.dart';
 import 'invoice.dart';
 
@@ -41,14 +41,11 @@ class _SelectProductState extends State<SelectProduct> {
     });
 
     final db = await DatabaseHelper.getDatabase();
-
-    // Fetch company details to check if GST is applicable
     final List<Map<String, dynamic>> companyData = await db.query("company", limit: 1);
     bool isGstApplicable = companyData.isNotEmpty ? (companyData.first['is_tax'] == 1) : false;
     String gstType = companyData.isNotEmpty ? (companyData.first['default_state'] ?? "same") : "same";
     double gstRate = companyData.isNotEmpty ? (companyData.first['cgst'] ?? 18.0) * 2 : 18.0;
 
-    // Fetch products
     final data = await DatabaseHelper().getProducts();
 
     setState(() {
@@ -65,7 +62,7 @@ class _SelectProductState extends State<SelectProduct> {
 
       product = List.from(productList);
       filteredProducts = List.from(productList);
-      isLoading = false; // Done loading
+      isLoading = false;
     });
   }
 
@@ -73,23 +70,19 @@ class _SelectProductState extends State<SelectProduct> {
     setState(() {
       filteredProducts = productList
           .where((product) =>
-      product['product_name']
-          .toLowerCase()
-          .contains(query.toLowerCase()) ||
-          product['product_code'].toString().contains(query)) // Use relevant fields
+      product['product_name'].toLowerCase().contains(query.toLowerCase()) ||
+          product['product_code'].toString().contains(query))
           .toList();
     });
   }
 
   Future<void> deleteProduct(int productId) async {
     await DatabaseHelper().deleteProduct(productId);
-    fetchProducts(); // Refresh the list after deletion
+    fetchProducts();
   }
-
 
   @override
   void dispose() {
-    // searchController.dispose();
     searchFocusNode.dispose();
     _searchController.dispose();
     super.dispose();
@@ -98,7 +91,7 @@ class _SelectProductState extends State<SelectProduct> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.background,
         title: _isSearching
@@ -110,7 +103,7 @@ class _SelectProductState extends State<SelectProduct> {
             border: InputBorder.none,
           ),
         )
-            : const Text("Select Product"),
+            : const Text("Product"),
         actions: [
           IconButton(
             icon: Icon(_isSearching ? Icons.close : Icons.search),
@@ -126,203 +119,251 @@ class _SelectProductState extends State<SelectProduct> {
       ),
       body: Column(
         children: [
-      // ✅ Fixed: Search Bar with Padding
-      Padding(
-      padding: const EdgeInsets.only(top: 5, bottom: 4, left: 5, right: 5),
-      // child: SizedBox(
-      //   height: 40,
-      //   child:
-      //   TextField(
-      //     controller: searchController,
-      //     focusNode: searchFocusNode,
-      //     onChanged: filterProduct,
-      //     decoration: InputDecoration(
-      //       hintText: "Search",
-      //       prefixIcon: const Icon(Icons.search, size: 20),
-      //       suffixIcon: searchFocusNode.hasFocus
-      //           ? IconButton(
-      //         icon: const Icon(Icons.clear, size: 20),
-      //         onPressed: () {
-      //           searchController.clear();
-      //           filterProduct('');
-      //           FocusScope.of(context).unfocus(); // optional: hide keyboard
-      //         },
-      //       )
-      //           : null,
-      //       isDense: true,
-      //       contentPadding: const EdgeInsets.symmetric(vertical: 8),
-      //       border: OutlineInputBorder(
-      //         borderRadius: BorderRadius.circular(10.0),
-      //       ),
-      //       filled: true,
-      //       fillColor: Colors.white,
-      //     ),
-      //   ),
-      // ),
-      ),
-          // Display Products in Card View
+          Padding(
+            padding: const EdgeInsets.only(top: 5, bottom: 4, left: 5, right: 5),
+          ),
           Expanded(
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : productList.isEmpty
-                ? Center(
-              child: Column(
-              mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    FontAwesomeIcons.warehouse,
-                    color: Theme.of(context).colorScheme.background,
-                    size: 80,
-                  ),
-                  const SizedBox(height: 10),
-                  const Text(
-                    "No Products Found",
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400),
-                  ),
-                ],
-              ),
-            )
-                : Card(
-                  child: ListView.separated(
-                    itemCount: filteredProducts.length,
-                    separatorBuilder: (context, index) => Divider(
-                      color: Colors.grey.shade300,
-                      thickness: 0.5,
-                      height: 0,
-                      indent: 15,
-                      endIndent: 15,
+            child: Card(
+              child: isLoading
+                  ? const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+                  : productList.isEmpty
+                  ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () {},
+                      child: Icon(
+                        FontAwesomeIcons.warehouse,
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onPrimaryFixedVariant,
+                        size: 80,
+                      ),
                     ),
-                    itemBuilder: (context, index) {
-                      final product = filteredProducts[index];
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 4), // tighter spacing
-                        child: InkWell(
-                          onTap: () {
-                            if (widget.isyes == true)
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => Invoice(product: [{...product, 'qty': 1}]), // 👈 Add qty here
-                                ),
-                              );
-                            else
-                              Navigator.pop(context, product);
-                          },
-                          child: Row(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.all(8.0),
-                                child: CircleAvatar(
-                                  radius: 20, // smaller avatar
-                                  backgroundColor: Theme.of(context).colorScheme.outline,
-                                  child: Text(
-                                    product['product_name'][0].toUpperCase(),
-                                    style: TextStyle(
-                                      color: Colors.white, // Correct usage
-                                      fontSize: 15,
-                                    ),                                ),
-                                ),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: () {},
+                      child: const Text(
+                        "No Products Found",
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => Product()),
+                        );
+                        if (result != null && result == true) {
+                          fetchProducts();
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.background,
+                      ),
+                      child: const Text(
+                        "Add New Products",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    )
+                  ],
+                ),
+              )
+                  : ListView.separated(
+                itemCount: filteredProducts.length,
+                separatorBuilder: (context, index) => Divider(
+                  color: Colors.grey.shade300,
+                  thickness: 0.5,
+                  height: 0,
+                  indent: 15,
+                  endIndent: 15,
+                ),
+                itemBuilder: (context, index) {
+                  final product = filteredProducts[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 4.0, vertical: 4),
+                    child: InkWell(
+                      onTap: () {
+                        if (widget.isyes == true) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => Invoice(
+                                  product: [{...product, 'qty': 1}]),
+                            ),
+                          );
+                        } else {
+                          Navigator.pop(context, product);
+                        }
+                      },
+                      child: Row(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .background,
+                              child: Text(
+                                product['product_name']
+                                    .toString()[0]
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15),
                               ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            product['product_name'],
-                                            style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 14.0),
-                                          child: Text(
-                                            "₹${product['product_price']}",
-                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                                          ),
-                                        ),
-                                      ],
+                                    Expanded(
+                                      child: Text(
+                                        product['product_name']
+                                            .toString(),
+                                        style: const TextStyle(
+                                            fontWeight:
+                                            FontWeight.w500,
+                                            fontSize: 14),
+                                        overflow:
+                                        TextOverflow.ellipsis,
+                                      ),
                                     ),
-                                    Row(
-                                      children: [
-                                        Text("${product['product_gst']}%", style: const TextStyle(fontSize: 11)),
-                                        if (product['product_hsn'] != null && product['product_hsn'].toString().trim().isNotEmpty) ...[
-                                          const SizedBox(width: 4),
-                                          Text("/ ${product['product_hsn']}", style: const TextStyle(fontSize: 11)),
-                                        ],
-                                      ],
+                                    Padding(
+                                      padding:
+                                      const EdgeInsets.only(
+                                          top: 14.0),
+                                      child: Text(
+                                        "₹${product['product_price']}",
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight:
+                                            FontWeight.w500),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                  
-                              PopupMenuButton<String>(
-                                icon: Padding(
-                                  padding: const EdgeInsets.only(left: 18.0),
-                                  child: Icon(Icons.more_vert,  color: Theme.of(context).colorScheme.scrim,),
+                                Row(
+                                  children: [
+                                    Text(
+                                        "${product['product_gst']}%",
+                                        style: const TextStyle(
+                                            fontSize: 11)),
+                                    if (product['product_hsn'] !=
+                                        null &&
+                                        product['product_hsn']
+                                            .toString()
+                                            .trim()
+                                            .isNotEmpty) ...[
+                                      const SizedBox(width: 4),
+                                      Text(
+                                          "/ ${product['product_hsn']}",
+                                          style: const TextStyle(
+                                              fontSize: 11)),
+                                    ],
+                                  ],
                                 ),
-                                // constraints: BoxConstraints(minWidth: 1000),
-                                onSelected: (value) async {
-                                  if (value == 'edit') {
-                                    bool? result = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => Product(product: product),
-                                      ),
-                                    );
-                                    if (result == true) fetchProducts();
-                                  } else if (value == 'delete') {
-                                    _confirmDeleteProduct(context, product['product_id'], fetchProducts);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  const PopupMenuItem(
-                                    value: 'edit',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.edit, color: Colors.blue, size: 18),
-                                        SizedBox(width: 6),
-                                        Text("Edit", style: TextStyle(fontSize: 13)),
-                                      ],
-                                    ),
+                              ],
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            icon: Padding(
+                              padding:
+                              const EdgeInsets.only(left: 18.0),
+                              child: Icon(Icons.more_vert,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .scrim),
+                            ),
+                            onSelected: (value) async {
+                              if (value == 'edit') {
+                                bool? result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        Product(product: product),
                                   ),
-                                  const PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.delete, color: Colors.red, size: 18),
-                                        SizedBox(width: 6),
-                                        Text("Delete", style: TextStyle(fontSize: 13)),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                                );
+                                if (result == true) fetchProducts();
+                              } else if (value == 'delete') {
+                                _confirmDeleteProduct(
+                                    context,
+                                    product['product_id'],
+                                    fetchProducts);
+                              }
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'edit',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.edit,
+                                        color: Colors.blue,
+                                        size: 18),
+                                    SizedBox(width: 6),
+                                    Text("Edit",
+                                        style:
+                                        TextStyle(fontSize: 13)),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete,
+                                        color: Colors.red,
+                                        size: 18),
+                                    SizedBox(width: 6),
+                                    Text("Delete",
+                                        style:
+                                        TextStyle(fontSize: 13)),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: productList.isNotEmpty
+          ? FloatingActionButton(
         backgroundColor: Theme.of(context).colorScheme.background,
         onPressed: () async {
           await Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => Product()),
           );
-          fetchProducts(); // Refresh the product list after adding
+          fetchProducts();
         },
-        child: Icon(Icons.add, color: Colors.white, size: 34), // Using a store icon as a replacement
-      ),
+        child: const Icon(Icons.add, color: Colors.white, size: 34),
+      )
+          : null,
     );
   }
 }
@@ -340,8 +381,8 @@ void _confirmDeleteProduct(BuildContext context, int productId, VoidCallback onD
         ),
         TextButton(
           onPressed: () async {
-            Navigator.pop(context); // Close first dialog
-            _checkProductInInvoices(context, productId, onDelete); // Proceed to second check
+            Navigator.pop(context);
+            _checkProductInInvoices(context, productId, onDelete);
           },
           child: const Text("Delete", style: TextStyle(color: Colors.red)),
         ),
@@ -353,7 +394,6 @@ void _confirmDeleteProduct(BuildContext context, int productId, VoidCallback onD
 void _checkProductInInvoices(BuildContext context, int productId, VoidCallback onDelete) async {
   final db = await DatabaseHelper.getDatabase();
 
-  // Fetch invoices where this product is present
   final List<Map<String, dynamic>> invoices = await db.rawQuery(
     '''
     SELECT DISTINCT invoice.invoice_id 
@@ -365,7 +405,6 @@ void _checkProductInInvoices(BuildContext context, int productId, VoidCallback o
   );
 
   if (invoices.isNotEmpty) {
-    // Show confirmation dialog listing associated invoices
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -385,17 +424,15 @@ void _checkProductInInvoices(BuildContext context, int productId, VoidCallback o
           ),
           TextButton(
             onPressed: () async {
-              // Delete related invoices and product
               for (var invoice in invoices) {
                 await db.delete('invoice', where: 'invoice_id = ?', whereArgs: [invoice['invoice_id']]);
                 await db.delete('invoice_line', where: 'invoice_id = ?', whereArgs: [invoice['invoice_id']]);
               }
 
-              // Delete product after invoices are removed
               await db.delete('product', where: 'product_id = ?', whereArgs: [productId]);
 
-              Navigator.pop(context,true); // Close dialog
-              onDelete(); // Refresh product list
+              Navigator.pop(context, true);
+              onDelete();
             },
             child: const Text("Delete All", style: TextStyle(color: Colors.red)),
           ),
@@ -403,9 +440,7 @@ void _checkProductInInvoices(BuildContext context, int productId, VoidCallback o
       ),
     );
   } else {
-    // If product is not linked to any invoices, delete it directly
     await db.delete('product', where: 'product_id = ?', whereArgs: [productId]);
-    onDelete(); // Refresh product list
+    onDelete();
   }
 }
-

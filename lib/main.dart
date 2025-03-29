@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:get/get_navigation/get_navigation.dart';
-import 'package:gst_invoice/color.dart';
+import 'package:get/get.dart';
 import 'package:gst_invoice/my_theme.dart';
+import 'package:gst_invoice/theme_controlloer.dart';
 import 'DATABASE/sharedprefhelper.dart';
 import 'organization_detail.dart';
 import 'gst_invoice.dart';
@@ -10,6 +10,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   bool isDataSaved = await SharedPrefHelper.isCompanyDataSaved();
+  ThemeController themeController = Get.put(ThemeController());
   Map<String, dynamic> companyDetails = await SharedPrefHelper.getCompanyDetails();
 
   runApp(MyApp(isDataSaved: isDataSaved, companyDetails: companyDetails));
@@ -23,26 +24,23 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'GST Invoice',
-      // theme: ThemeData(
-      //     colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      //     useMaterial3: false,
-      //     appBarTheme: AppBarTheme(color: Colors.transparent,elevation: 0,
-      //       // iconTheme: IconThemeData(color: themecolor),titleTextStyle: TextStyle(color: themecolor, fontSize: 20)
-      //     )
-      // ),
-      theme: lightTheme,
-      darkTheme: darkTheme,
-      home: isDataSaved
-          ? GstInvoice(
-        companyName: companyDetails["companyName"] ?? "",
-        companyState: companyDetails["companyState"] ?? "",
-        gstRate: companyDetails["gstRate"] ?? "0.0",
-      )
-          : OrganizationDetail(),
+    return GetBuilder<ThemeController>(
+      builder: (controller) {
+        return GetMaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'GST Invoice',
+          theme: lightTheme,
+          darkTheme: darkTheme,
+          themeMode: controller.isDark.value ? ThemeMode.dark : ThemeMode.light,
+          home: isDataSaved
+              ? GstInvoice(
+            companyName: companyDetails["companyName"] ?? "",
+            companyState: companyDetails["companyState"] ?? "",
+            gstRate: companyDetails["gstRate"] ?? "0.0",
+          )
+              : OrganizationDetail(),
+        );
+      },
     );
   }
 }
-

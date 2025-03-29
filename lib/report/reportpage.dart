@@ -15,6 +15,7 @@ class _ReportPageState extends State<ReportPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         title: const Text('Report'),
         backgroundColor: Theme.of(context).colorScheme.background,

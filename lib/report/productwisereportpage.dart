@@ -167,6 +167,7 @@ class _ProductWiseReportPageState extends State<ProductWiseReportPage> {
     String monthYear = DateFormat('MMM yyyy').format(selectedDate);
 
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         title: const Text('Product Wise Report'),
         backgroundColor: Theme.of(context).colorScheme.background,

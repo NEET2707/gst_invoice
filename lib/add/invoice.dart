@@ -515,7 +515,7 @@ class _InvoiceState extends State<Invoice> {
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
-                color: isHighlighted ? Theme.of(context).colorScheme.onBackground : Colors.black,
+                color: isHighlighted ? Theme.of(context).colorScheme.onBackground : Theme.of(context).colorScheme.onBackground,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -578,6 +578,7 @@ class _InvoiceState extends State<Invoice> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.background,
         title: const Text("Invoice"),
@@ -594,7 +595,7 @@ class _InvoiceState extends State<Invoice> {
                 },
                 child: const Text(
                   "SAVE",
-                  style: TextStyle(fontWeight: FontWeight.w600),
+                  style: TextStyle(fontWeight: FontWeight.w600, color: Colors.white),
                 ),
               ),
             ),
@@ -660,9 +661,9 @@ class _InvoiceState extends State<Invoice> {
                   isEditable: true,
                   child: Column(
                     children: [
-                      _buildDetailRow(FontAwesomeIcons.user, companyName, iconColor:Theme.of(context).colorScheme.onBackground),
+                      _buildDetailRow(FontAwesomeIcons.user, companyName, iconColor:Theme.of(context).colorScheme.scrim),
                       SizedBox(height: 5),
-                      _buildDetailRow(FontAwesomeIcons.map, companyState, iconColor:Theme.of(context).colorScheme.onBackground),
+                      _buildDetailRow(FontAwesomeIcons.map, companyState, iconColor:Theme.of(context).colorScheme.scrim),
                     ],
                   ),
                 ),
@@ -800,7 +801,7 @@ class _InvoiceState extends State<Invoice> {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Icon(icon, color: Colors.black),
+          Icon(icon, color: Theme.of(context).colorScheme.scrim),
           const SizedBox(width: 10),
           Text(text, style: const TextStyle(fontSize: 16)),
         ],

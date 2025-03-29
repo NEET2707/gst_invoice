@@ -65,6 +65,7 @@ class _ClientDetailState extends State<ClientDetail> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: themecolor,
         title: Text(

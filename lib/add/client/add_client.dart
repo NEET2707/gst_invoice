@@ -180,6 +180,7 @@ class _AddClientState extends State<AddClient> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.background,
         title: Text("ADD Client"),
@@ -263,10 +264,16 @@ Widget buildTextField(
           keyboardType: keyboardType,
           focusNode: focusNode,
           onChanged: (value) {
-            final upperText = value.toUpperCase();
+            final capitalizedText = value
+                .split(' ')
+                .map((word) => word.isNotEmpty
+                ? word[0].toUpperCase() + word.substring(1).toLowerCase()
+                : '')
+                .join(' ');
+
             controller?.value = controller.value.copyWith(
-              text: upperText,
-              selection: TextSelection.collapsed(offset: upperText.length),
+              text: capitalizedText,
+              selection: TextSelection.collapsed(offset: capitalizedText.length),
             );
           },
           style: TextStyle(color: Colors.black),

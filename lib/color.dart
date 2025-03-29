@@ -16,12 +16,15 @@ final themecolor = Colors.blue;
 
 // for light color
 
-final lightBgColor = Color(0xFF9AC1E6);
+final lightBgColor = Color(0xFF487398);
 final lightTextColor = Color(0xFF06397C);
 final lightDivColor = Colors.white;
 final lightLableColor = Colors.grey.shade300;
 final lightCircleAvatarColor = Color(0xFF9AC1E6);
 final lightIconColor = Colors.black;
+final lightbodybgColor = Colors.white;
+final lightSettingsColor = Color(0xFF487398);
+final lightFiconColor = Colors.grey.shade200;
 
 //common color
 
@@ -31,11 +34,19 @@ final buttonColor = Colors.white;
 
 //for dark color
 
-final darkBgColor = Color(0xFF132842);
+// final darkBgColor = Color(0xFF132842);
+final darkBgColor = Colors.grey.shade900;
 final darkTextColor = Colors.white;
 // final darkTextColor = Color(0xFF9DA9BB);
-final darkDivColor = Colors.grey.shade600;
+// final darkDivColor = Color(0xFF317AD3FF);
+final darkDivColor = Colors.grey.shade800;
 final darkLableColor = Colors.white;
 final darkCircleAvatarColor = Color(0xFF132842);
 final darkIconColor = Colors.white;
+final darkbodybgColor = Colors.black;
+final darkSettingsColor = Colors.white;
+final darkFiconColor = Colors.grey.shade700;
+
+
+
 

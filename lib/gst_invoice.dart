@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:get/get.dart';
 import 'package:gst_invoice/color.dart';
 import 'package:gst_invoice/settings.dart';
@@ -109,6 +110,7 @@ class _GstInvoiceState extends State<GstInvoice> {
   Widget build(BuildContext context) {
     ThemeController themeController = Get.put(ThemeController());
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: (_selectedIndex == 1 || _selectedIndex == 3 || _selectedIndex == 4)
           ? null
           : AppBar(
@@ -137,38 +139,31 @@ class _GstInvoiceState extends State<GstInvoice> {
             },
           ),
         ],
-        leading: IconButton(
-          onPressed: () {
-            themeController.changeTheme();
-          },
-          icon: Obx(
-                () => themeController.isDark.value
-                ? const Icon(Icons.dark_mode)
-                : const Icon(Icons.light_mode),
-          ),
-        ),
       ),
       body: _selectedIndex == 0
           ? RefreshIndicator(
         onRefresh: loadInvoices,
-        child: _isLoading
-            ? Center(child: CircularProgressIndicator())
-            : Card(
-              child: Column(
-                children: [
-                  SizedBox(height: 15),
-                  Expanded(child: buildInvoiceList()),
-                  SizedBox(height: 50),
-                ],
+        child: Card(
+          child: Column(
+            children: [
+              const SizedBox(height: 15),
+              Expanded(
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : buildInvoiceList(),
               ),
-            ),
+              const SizedBox(height: 50),
+            ],
+          ),
+        ),
       )
           : RefreshIndicator(
-          onRefresh: () async {
-            loadInvoices();
-          },
-          child: _pages[_selectedIndex]),
-      floatingActionButton: _selectedIndex == 0
+        onRefresh: () async {
+          loadInvoices();
+        },
+        child: _pages[_selectedIndex],
+      ),
+      floatingActionButton: _selectedIndex == 0 && filteredInvoices.isNotEmpty // Conditional FAB
           ? FloatingActionButton(
         backgroundColor: Theme.of(context).colorScheme.background,
         onPressed: () {
@@ -186,7 +181,7 @@ class _GstInvoiceState extends State<GstInvoice> {
         shape: CircularNotchedRectangle(),
         height: 65,
         notchMargin: 8.0,
-        color: Colors.white,
+        color: Theme.of(context).colorScheme.background,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
@@ -214,19 +209,17 @@ class _GstInvoiceState extends State<GstInvoice> {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon,
-                  size: 20,
-                  color: _selectedIndex == index
-                      ? Theme.of(context).colorScheme.background
-                      : Colors.grey),
+              Icon(
+                icon,
+                size: 20,
+                color: _selectedIndex == index ? Colors.white : Colors.white,
+              ),
               SizedBox(height: 2),
               Text(
                 label,
                 style: TextStyle(
                   fontSize: 12,
-                  color: _selectedIndex == index
-                      ? Theme.of(context).colorScheme.background
-                      : Colors.grey,
+                  color: _selectedIndex == index ? Colors.white : Colors.white,
                 ),
               ),
             ],
@@ -239,14 +232,48 @@ class _GstInvoiceState extends State<GstInvoice> {
   Widget buildInvoiceList() {
     return filteredInvoices.isEmpty
         ? Center(
-      child: Text(
-        "No Invoices Available",
-        style: TextStyle(fontSize: 18, color: Theme.of(context).colorScheme.background),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () {},
+            child: Icon(
+              FontAwesomeIcons.fileInvoice,
+              color: Theme.of(context).colorScheme.onPrimaryFixedVariant,
+              size: 80,
+            ),
+          ),
+          const SizedBox(height: 10),
+          GestureDetector(
+            onTap: () {},
+            child: const Text(
+              "No Invoices Available",
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w400),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => Invoice()),
+              );
+              loadInvoices();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.background,
+            ),
+            child: const Text(
+              "Add New Invoice",
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
     )
         : ListView.separated(
       shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
+      physics: const NeverScrollableScrollPhysics(),
       separatorBuilder: (context, index) =>
           Divider(color: Colors.grey.shade300, thickness: 1),
       itemCount: filteredInvoices.length,
@@ -272,7 +299,7 @@ class _GstInvoiceState extends State<GstInvoice> {
             }
           },
           child: Container(
-            margin: EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            margin: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
             padding: const EdgeInsets.all(2.0),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
@@ -285,19 +312,19 @@ class _GstInvoiceState extends State<GstInvoice> {
                   height: 40,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Theme.of(context).colorScheme.outline,
+                    color: Theme.of(context).colorScheme.background,
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     "${invoice['invoice_id']}",
-                    style: TextStyle(
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,18 +333,18 @@ class _GstInvoiceState extends State<GstInvoice> {
                         children: [
                           Text(
                             invoice['client_company'] ?? "No Client",
-                            style: TextStyle(
+                            style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 fontSize: 18),
                           ),
                         ],
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Row(
                         children: [
                           Text(
                             formatDate(invoice['invoic_date']),
-                            style: TextStyle(
+                            style: const TextStyle(
                                 color: Colors.grey, fontSize: 14),
                           ),
                         ],
@@ -325,7 +352,7 @@ class _GstInvoiceState extends State<GstInvoice> {
                     ],
                   ),
                 ),
-                SizedBox(width: 10),
+                const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -333,23 +360,23 @@ class _GstInvoiceState extends State<GstInvoice> {
                       children: [
                         Text(
                           "₹ ${invoice['total_amount'].toStringAsFixed(2)}",
-                          style: TextStyle(
+                          style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w500),
                         ),
                       ],
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Container(
-                      padding:
-                      EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 3),
                       decoration: BoxDecoration(
                         color: isPaid ? Colors.green : Colors.red,
                         borderRadius: BorderRadius.circular(5),
                       ),
                       child: Text(
                         isPaid ? "PAID" : "UNPAID",
-                        style:
-                        TextStyle(color: Colors.white, fontSize: 10),
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 10),
                       ),
                     ),
                   ],
@@ -362,4 +389,3 @@ class _GstInvoiceState extends State<GstInvoice> {
     );
   }
 }
-

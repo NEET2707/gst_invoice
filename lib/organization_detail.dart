@@ -400,8 +400,9 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
-        backgroundColor: themecolor,
+        backgroundColor: Theme.of(context).colorScheme.background,
         title:
         Text("Organization Detail", style: TextStyle(color: Colors.white)),
         actions: [

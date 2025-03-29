@@ -34,6 +34,7 @@ class _DetailState extends State<Detail> {
   String? bankDetailsController ;
   String? termsController ;
   bool isGstApplicable = true;
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -708,6 +709,7 @@ class _DetailState extends State<Detail> {
     }
 
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.background,
         title: Text("Detail"),
@@ -764,30 +766,35 @@ class _DetailState extends State<Detail> {
         padding: const EdgeInsets.all(8.0),
         child: Card(
           elevation: 2,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.all(16.0),
+          child: _isLoading
+              ? const SizedBox(
+            height: 200, // Ensures the card doesn't collapse while loading
+            child: Center(child: CircularProgressIndicator()),
+          )
+              : SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildStatusToggle(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1),
                 ),
                 _buildBuyerDetails(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1),
                 ),
                 _buildInvoiceDetails(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
-                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1),
                 ),
                 _buildProductsList(),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 50),
-                  child: Divider(color: Colors.blue.shade100, thickness: 1,),
+                  child: Divider(color: Colors.blue.shade100, thickness: 1),
                 ),
                 _buildGST(),
               ],

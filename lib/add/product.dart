@@ -132,6 +132,7 @@ class _ProductState extends State<Product> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       appBar: AppBar(
         backgroundColor: themecolor,
         title: Text(productId == null ? "Add Product" : "Edit Product"),
