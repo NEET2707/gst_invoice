@@ -1,4 +1,10 @@
+// SharedPrefHelper.dart (Corrected)
 import 'package:shared_preferences/shared_preferences.dart';
+
+enum PrefKey {
+  pin,
+  password,
+}
 
 class SharedPrefHelper {
   static const String _isDataSavedKey = "isDataSaved";
@@ -34,7 +40,6 @@ class SharedPrefHelper {
     await prefs.setString("companyAddress", companyAddress);
     await prefs.setString("companyContact", companyContact);
 
-    // ✅ Fix: Store GST applicable flag correctly
     await prefs.setInt("isGstApplicable", isGstApplicable ? 1 : 0);
 
     await prefs.setString("defaultCustomerState", defaultCustomerState);
@@ -47,11 +52,9 @@ class SharedPrefHelper {
       await prefs.setString("TandC", tandC);
     }
 
-    // ✅ **Mark company data as saved**
-    await prefs.setBool("isDataSaved", true); // 🚀 THIS LINE FIXES THE ISSUE
+    await prefs.setBool("isDataSaved", true);
   }
 
-  /// Check if company data is saved
   static Future<bool> isCompanyDataSaved() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     return prefs.getBool(_isDataSavedKey) ?? false;
@@ -67,10 +70,7 @@ class SharedPrefHelper {
       "gstNumber": prefs.getString("gstNumber") ?? "",
       "companyAddress": prefs.getString("companyAddress") ?? "",
       "companyContact": prefs.getString("companyContact") ?? "",
-
-      // ✅ Fix: Convert stored int (0/1) to bool
       "isGstApplicable": prefs.getInt("isGstApplicable") == 1 ? true : false,
-
       "defaultCustomerState": prefs.getString("defaultCustomerState") ?? "",
       "gstType": prefs.getString("gstType") ?? "same",
       "BankDetails": prefs.getString("BankDetails") ?? "",
@@ -78,7 +78,6 @@ class SharedPrefHelper {
     };
   }
 
-  /// Clear saved company data
   static Future<void> clearCompanyData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove(_isDataSavedKey);
@@ -90,5 +89,37 @@ class SharedPrefHelper {
     await prefs.remove(_companyContactKey);
     await prefs.remove(_isGstApplicableKey);
     await prefs.remove(_defaultCustomerStateKey);
+  }
+
+  static Future<void> deleteSpecific({required PrefKey prefKey}) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(prefKey.name);
+  }
+
+  static Future<void> save({required String value, required PrefKey prefKey}) async {
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString(prefKey.name, value);
+    print("✅ Saved ${prefKey.name}: $value");
+  }
+
+  static Future<String?> get({required PrefKey prefKey}) async {
+    final prefs = await SharedPreferences.getInstance();
+    String? value = prefs.getString(prefKey.name);
+    print("🛠 Retrieved ${prefKey.name}: $value");
+    print("All SharedPreferences Data: ${prefs.getKeys().map((key) => '$key: ${prefs.get(key)}').join(', ')}");
+    return value;
+  }
+
+  static Future<void> savePin(String pin) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(PrefKey.pin.name, pin);
+    print("✅ Saved PIN: $pin");
+  }
+
+  static Future<String?> getPin() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? pin = prefs.getString(PrefKey.pin.name);
+    print("🛠 Retrieved PIN: $pin");
+    return pin;
   }
 }

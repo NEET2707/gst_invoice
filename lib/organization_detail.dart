@@ -379,7 +379,7 @@ class _OrganizationDetailState extends State<OrganizationDetail> {
               contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               border: InputBorder.none,
               hintText: hint,
-              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)), // Adjust for dark mode
+              hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5)),
             ),
           ),
         ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:gst_invoice/DATABASE/database_helper.dart';
-import 'organization_detail.dart';
-import 'gst_invoice.dart';
+import 'package:gst_invoice/password/pin_verify.dart';
+import '../database/sharedprefhelper.dart';
+import '../organization_detail.dart';
+import '../gst_invoice.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -13,7 +15,29 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    checkCompanyData();
+    // checkCompanyData();
+    _showSplashScreen();
+  }
+
+  Future<void> _showSplashScreen() async {
+    await Future.delayed(const Duration(seconds: 1));
+    String? savedPin = await SharedPrefHelper.get(prefKey: PrefKey.pin);
+
+    if (savedPin != null) {
+      // ✅ Navigate to PIN screen, then decide where to go
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VerifyPinScreen(
+            onSuccess: () {
+              checkCompanyData();
+            },
+          ),
+        ),
+      );
+    } else {
+      checkCompanyData();
+    }
   }
 
   Future<void> checkCompanyData() async {
@@ -26,16 +50,14 @@ class _SplashScreenState extends State<SplashScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-            builder: (context) =>
-                isDataSaved
-                ?
-                GstInvoice(
+          builder: (context) => isDataSaved
+              ? GstInvoice(
                   companyName: companyDetails["company_name"] ?? "",
                   companyState: companyDetails["company_state"] ?? "",
                   gstRate: companyDetails["igst"]?.toString() ?? "0.0",
                 )
-            : OrganizationDetail(),
-            ),
+              : OrganizationDetail(),
+        ),
       );
     });
   }

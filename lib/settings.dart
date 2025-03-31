@@ -5,12 +5,14 @@ import 'package:gst_invoice/color.dart';
 import 'package:gst_invoice/ADD/client/select_client.dart';
 import 'package:gst_invoice/ADD/select_product.dart';
 import 'package:gst_invoice/organization_detail.dart';
+import 'package:gst_invoice/password/set_pin.dart';
 import 'package:gst_invoice/theme_controlloer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'DATABASE/sharedprefhelper.dart';
+import 'database/sharedprefhelper.dart';
 import 'Report/reportpage.dart';
 import 'backuppage.dart';
+import 'database/sharedprefhelper.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -21,12 +23,38 @@ class Settings extends StatefulWidget {
 
 class _SettingsState extends State<Settings> {
   Map<String, dynamic>? companyDetails;
+  bool isToggled = false;
 
   @override
   void initState() {
     super.initState();
     _loadCompanyDetails();
+    _loadToggleState();
   }
+
+  void _loadToggleState() async {
+    String? savedPin = await SharedPrefHelper.get(prefKey: PrefKey.pin);
+    setState(() {
+      isToggled = savedPin != null; // If PIN exists, toggle should be ON
+    });
+  }
+
+  void onToggleSwitch(bool value) async {
+    if (value) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => SetPinScreen()),
+      );
+    } else {
+      await SharedPrefHelper.deleteSpecific(prefKey: PrefKey.pin);
+      String? checkPin = await SharedPrefHelper.get(prefKey: PrefKey.pin);
+      print('PIN after deletion--------------------------------: $checkPin'); // Check if PIN is really deleted
+      setState(() {
+        isToggled = false;
+      });
+    }
+  }
+
 
   void _loadCompanyDetails() async {
     companyDetails = await SharedPrefHelper.getCompanyDetails();
@@ -121,6 +149,17 @@ class _SettingsState extends State<Settings> {
             ),
           ),
           _buildSettingsItem(
+            icon: Icons.lock,
+            title: "Enter PIN",
+            subtitle: "Secure your app with a PIN.",
+            leadingIcon: Icons.lock,
+            // Set leadingIcon to use the lock icon
+            trailingWidget: Switch(
+              value: isToggled, // Current state of the switch
+              onChanged: onToggleSwitch, // Callback to toggle the switch
+            ),
+          ),
+          _buildSettingsItem(
             icon: Icons.share,
             title: "Share Company Details",
             subtitle: "Share Your Company Details",
@@ -174,6 +213,7 @@ State: ${companyDetails?['companyState'] ?? 'N/A'}
     required String subtitle,
     Function()? onTap,
     Widget? trailingWidget,
+    IconData? leadingIcon,
   }) {
     return Card(
       elevation: 2,

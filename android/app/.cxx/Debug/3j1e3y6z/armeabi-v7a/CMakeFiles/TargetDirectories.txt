@@ -1,0 +1,2 @@
+D:/flutter_project/gst_invoice/gst_invoice/android/app/.cxx/Debug/3j1e3y6z/armeabi-v7a/CMakeFiles/edit_cache.dir
+D:/flutter_project/gst_invoice/gst_invoice/android/app/.cxx/Debug/3j1e3y6z/armeabi-v7a/CMakeFiles/rebuild_cache.dir

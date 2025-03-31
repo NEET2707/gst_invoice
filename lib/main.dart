@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:gst_invoice/my_theme.dart';
+import 'package:gst_invoice/password/splash_screen.dart';
 import 'package:gst_invoice/theme_controlloer.dart';
 import 'DATABASE/sharedprefhelper.dart';
 import 'organization_detail.dart';
@@ -32,13 +33,14 @@ class MyApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: controller.isDark.value ? ThemeMode.dark : ThemeMode.light,
-          home: isDataSaved
-              ? GstInvoice(
-            companyName: companyDetails["companyName"] ?? "",
-            companyState: companyDetails["companyState"] ?? "",
-            gstRate: companyDetails["gstRate"] ?? "0.0",
-          )
-              : OrganizationDetail(),
+          home: SplashScreen(),
+          // isDataSaved
+          //     ? GstInvoice(
+          //   companyName: companyDetails["companyName"] ?? "",
+          //   companyState: companyDetails["companyState"] ?? "",
+          //   gstRate: companyDetails["gstRate"] ?? "0.0",
+          // )
+          //     : OrganizationDetail(),
         );
       },
     );
